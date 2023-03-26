@@ -1,0 +1,1 @@
+PROJECT_RABBITMQ_QUEUE_NAME = 'worker_queue'

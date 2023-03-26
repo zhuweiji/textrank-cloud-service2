@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "cloud-worker"
+		},
+		{
+			"path": "fastapi-server"
+		}
+	],
+	"settings": {}
+}
