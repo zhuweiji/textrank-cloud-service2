@@ -1,11 +1,11 @@
+import logging
 from pathlib import Path
 from typing import TextIO
 
 from clip_interrogator import Config, Interrogator
-from cloud_worker import get_logger
 from PIL import Image
 
-log = get_logger(__name__)
+log = logging.getLogger(__name__)
 
 class ImageInterrogator:
     interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))

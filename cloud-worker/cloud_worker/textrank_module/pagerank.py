@@ -7,7 +7,6 @@ from itertools import count
 from threading import current_thread
 from typing import List
 
-logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 @dataclass
@@ -43,7 +42,7 @@ class Directed_Node:
     
 class PageRank:
     @classmethod
-    def calculate__undirected_no_optimse(self, nodes: List[Undirected_Node], convergence_threshold: float = None, iterations:int = 10):
+    def calculate__undirected_no_optimse(cls, nodes: List[Undirected_Node], convergence_threshold: float = 0, iterations:int = 10):
         if convergence_threshold and iterations: raise ValueError('cannot have both args at once')
         
         node_scores = {i:1 for i in nodes}

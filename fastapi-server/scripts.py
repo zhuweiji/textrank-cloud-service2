@@ -9,46 +9,8 @@ from pathlib import Path
 logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.INFO)
 log = logging.getLogger(__name__)
 
-
-
-@contextlib.contextmanager
-def temporary_filename(suffix=None):
-    """Context that introduces a temporary file.
-
-    Creates a temporary file, yields its name, and upon context exit, deletes it.
-    (In contrast, tempfile.NamedTemporaryFile() provides a 'file' object and
-    deletes the file as soon as that file object is closed, so the temporary file
-    cannot be safely re-opened by another library or process.)
-
-    Args:
-    suffix: desired filename extension (e.g. '.mp4').
-
-    Yields:
-    The name of the temporary file.
-    """
-    tmp_name = ''
-    try:
-        f = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-        tmp_name = f.name
-        f.close()
-        yield tmp_name
-    finally:
-        if tmp_name: os.unlink(tmp_name)
-    
-def run_process(commands: str):
-    """run a process
-    use to execute commands such as - python -m pip install"""
-    try:
-        subprocess.run(commands.split())
-    except KeyboardInterrupt:
-        log.info('Keyboard Interrupt: Terminating Program')
-    except Exception:
-        log.exception(commands)
-        
-        
-
 def start():
-    run_process('python run -m src.main')
+    run_process('uvicorn fastapi_server.main:app --host 0.0.0.0 --port 8000 --reload')
     
 def test():
     parser = argparse.ArgumentParser(
@@ -110,3 +72,40 @@ def add_pre_commit_hooks():
     new_precommit_file.write_text(hook_contents)
     log.info('pre-commit file created successfully')
     
+
+@contextlib.contextmanager
+def temporary_filename(suffix=None):
+    """Context that introduces a temporary file.
+
+    Creates a temporary file, yields its name, and upon context exit, deletes it.
+    (In contrast, tempfile.NamedTemporaryFile() provides a 'file' object and
+    deletes the file as soon as that file object is closed, so the temporary file
+    cannot be safely re-opened by another library or process.)
+
+    Args:
+    suffix: desired filename extension (e.g. '.mp4').
+
+    Yields:
+    The name of the temporary file.
+    """
+    tmp_name = ''
+    try:
+        f = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+        tmp_name = f.name
+        f.close()
+        yield tmp_name
+    finally:
+        if tmp_name: os.unlink(tmp_name)
+    
+def run_process(commands: str):
+    """run a process
+    use to execute commands such as - python -m pip install"""
+    try:
+        log.info(commands)
+        subprocess.run(commands.split())
+    except KeyboardInterrupt:
+        log.info('Keyboard Interrupt: Terminating Program')
+    except Exception:
+        log.exception(commands)
+        
+        

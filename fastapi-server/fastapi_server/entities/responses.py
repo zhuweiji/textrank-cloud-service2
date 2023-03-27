@@ -1,5 +1,10 @@
 from dataclasses import dataclass
 
+from fastapi import Response
+
+
+def job_created_response(task_id:str):
+    return {'job_created': task_id}
 
 def text_response(text:str):
     return {'message': text}

@@ -1,14 +1,15 @@
+import logging
 from dataclasses import dataclass
 from typing import List
 
-from nlp import remove_stopwords as _remove_stopwords
-
+from .nlp import remove_stopwords as _remove_stopwords
 from .pagerank import PageRank, Undirected_Node
 
 """
 TextRank.keyword_extraction__undirected() - return a list of keywords from a string
 """
 
+log = logging.getLogger(__name__)
 
 @dataclass
 class TextRankKeywordResult:

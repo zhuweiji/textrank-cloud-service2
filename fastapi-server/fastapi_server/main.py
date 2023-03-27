@@ -1,16 +1,18 @@
+import asyncio
 import logging
-import os
-from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-
-from fastapi_server import get_logger
+from fastapi_server.constants import RABBITMQ_JOB_QUEUE_NAME, RABBITMQ_RESULT_QUEUE_NAME
+from fastapi_server.entities.POST_bodies import Text_Transcribe_Request
 from fastapi_server.entities.responses import healthcheck_response
-from fastapi_server.services.imagerank_service import image_rank_service
-from fastapi_server.services.textrank_service import text_rank_service
+from fastapi_server.routers import router
+from fastapi_server.services.connection_handlers import RabbitMQHandler
+from fastapi_server.services.task_processor import JobProcessor
+from sse_starlette.sse import EventSourceResponse
 
-log = get_logger(__name__)
+logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.INFO)
+log = logging.getLogger(__name__)
 
 app = FastAPI(
     title="TextRank Backend",
@@ -28,22 +30,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(
+    router=router.router
+)
+
+tasks = set()
+
+def run_task(coro):
+    task = asyncio.create_task(coro)
+    tasks.add(task)
+    task.add_done_callback(tasks.discard)
+
+@app.on_event('startup')
+async def before_start():
+    t = run_task(
+        RabbitMQHandler.listen(RABBITMQ_RESULT_QUEUE_NAME, on_message_handler=JobProcessor.handle_new_result)
+    )
+    tasks.add(t)
 
 @app.get('/')
 def root_endpoint():
-    return healthcheck_response()
+    return healthcheck_response() 
 
-@app.route('/text_rank', methods=["POST"])
-def text_rank_route(text: str):
-    return text_rank_service(text)
 
-@app.post('/image_transcribe')
-async def image_transcribe_route(image: UploadFile= File()):
-    file_suffix_is_img = (image.filename or "").split('.')[-1] in ('jpg','png')
-    if not file_suffix_is_img:
-        raise HTTPException(400, 'The file must be either a .jpg or .png file')
-    
-    file_obj = image.file
-    return image_rank_service(file_obj)
+
 
 
