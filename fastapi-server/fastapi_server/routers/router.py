@@ -60,7 +60,6 @@ async def image_transcribe_route(image: UploadFile= File()):
 async def get_job_result_route(task_id: str):
     while True:
         job = JobProcessor.check_job_status(task_id)
-        log.info(job)
         if job:
             return text_response(job.data)
         else:

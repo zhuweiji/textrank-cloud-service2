@@ -18,7 +18,7 @@ class RabbitMQHandler:
         if on_message_handler:
             on_message_handler = cls.wrap_message_handler(on_message_handler)
         else:
-            log_messages = lambda x: log.warning(f"Unhandled in queue: {queue_name} message on : {x.headers}")
+            log_messages = lambda x: log.warning(f"Unhandled in queue: {queue_name} message headers: {x.headers}")
             on_message_handler = cls.wrap_message_handler(log_messages)
             
 
