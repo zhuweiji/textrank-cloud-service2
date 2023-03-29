@@ -1,5 +1,6 @@
 
 import logging
+import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import BinaryIO, Union
@@ -25,7 +26,7 @@ class TaskType(Enum):
 @dataclass
 class JobSpecification:
     task_type: TaskType
-    data: Union[str, BinaryIO]
+    data: Union[str, BinaryIO, tempfile.SpooledTemporaryFile, tempfile._TemporaryFileWrapper]
     
     task_id: str = field(default_factory=lambda: ulid())
     
@@ -34,12 +35,16 @@ class JobProcessor:
     completed_jobs = {}
     
     @classmethod
-    async def create_image_rank_job(cls, file: BinaryIO):
+    async def create_image_rank_job(cls, file: Union[BinaryIO, tempfile.SpooledTemporaryFile, tempfile._TemporaryFileWrapper]):
+        log.warning(file)
         job = JobSpecification(
-            task_type=TaskType.KEYWORD_EXTRACTION,
+            task_type=TaskType.IMAGE_TRANSCRIPTION,
             data=file)
-        if await cls.publish_new_job(job):
-            return job
+        
+        job_start_result = await cls.publish_new_job(job)
+        return job if job_start_result else False
+            
+        
         
 
     @classmethod
@@ -49,8 +54,8 @@ class JobProcessor:
             task_type=TaskType.KEYWORD_EXTRACTION,
             data=request_text,)
         
-        if await cls.publish_new_job(job):
-            return job
+        job_start_result = await cls.publish_new_job(job)
+        return job if job_start_result else False
         
     @classmethod 
     async def publish_new_job(cls, job: JobSpecification):
@@ -83,4 +88,5 @@ class JobProcessor:
     
     @classmethod
     def check_job_status(cls, task_id):
+        # log.info(cls.completed_jobs)
         return cls.completed_jobs.get(task_id,None)
