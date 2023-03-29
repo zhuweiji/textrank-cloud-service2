@@ -8,7 +8,7 @@ tasks = set()
 
 import logging
 
-logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 import asyncio
@@ -28,5 +28,6 @@ async def main():
     await asyncio.Future()
         
 if __name__ == "__main__":
+    log.info("Cloud Worker starting up now...")
     asyncio.run(main())
     

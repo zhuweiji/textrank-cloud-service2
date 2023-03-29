@@ -10,6 +10,7 @@ from fastapi_server.routers import router
 from fastapi_server.services.connection_handlers import RabbitMQHandler
 from fastapi_server.services.task_processor import JobProcessor
 from sse_starlette.sse import EventSourceResponse
+import uvicorn
 
 logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -36,10 +37,12 @@ app.include_router(
 
 tasks = set()
 
+
 def run_task(coro):
     task = asyncio.create_task(coro)
     tasks.add(task)
     task.add_done_callback(tasks.discard)
+
 
 @app.on_event('startup')
 async def before_start():
@@ -48,11 +51,11 @@ async def before_start():
     )
     tasks.add(t)
 
+
 @app.get('/')
 def root_endpoint():
-    return healthcheck_response() 
+    return healthcheck_response()
 
 
-
-
-
+if (__name__ == "__main__"):
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
