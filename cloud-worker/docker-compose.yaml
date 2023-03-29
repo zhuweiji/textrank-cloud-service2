@@ -1,0 +1,25 @@
+version: '3'
+services:
+#  rabbit:
+#    hostname: rabbit
+#    image: rabbitmq:3-management
+#    environment:
+#      - RABBITMQ_DEFAULT_USER=admin
+#      - RABBITMQ_DEFAULT_PASS=mypass
+  web:
+    image: shafiq98/text_rank_server:1
+    hostname: web
+    volumes:
+      - .:/app
+    ports:
+      - "8080:8080"
+#    links:
+#      - rabbit
+#  worker:
+#    image: shafiq98/text_rank_worker:1
+#    volumes:
+#      - .:/app
+#    links:
+#      - rabbit
+#    depends_on:
+#      - rabbit

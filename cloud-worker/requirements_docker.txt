@@ -11,7 +11,7 @@ fairscale==0.4.4
 fastapi==0.95.0
 filelock==3.9.0
 ftfy==6.1.1
-gensim==4.3.1
+gensim==4.2.0
 h11==0.14.0
 huggingface-hub==0.13.3
 idna==3.4
@@ -19,7 +19,7 @@ Jinja2==3.1.2
 MarkupSafe==2.1.2
 mpmath==1.2.1
 multidict==6.0.4
-networkx==3.0rc1
+networkx==2.8.8
 numpy==1.24.1
 open-clip-torch==2.16.0
 packaging==23.0
@@ -41,9 +41,9 @@ starlette==0.26.1
 sympy==1.11.1
 timm==0.4.12
 tokenizers==0.13.2
---find-links https://download.pytorch.org/whl/torch_stable.html
-torch==2.0.0+cpu
-torchvision==0.15.1
+--find-links https://download.pytorch.org/whl/cu117
+torch==2.0.0+cu117
+torchvision==0.15.1+cu117
 tqdm==4.65.0
 transformers==4.27.3
 typing_extensions==4.4.0
