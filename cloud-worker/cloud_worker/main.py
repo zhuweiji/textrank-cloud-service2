@@ -22,6 +22,7 @@ def run_task(coro):
 
 
 async def main():
+    log.info('starting worker..')
     t = asyncio.create_task(TaskProcesor.listen_for_incoming_tasks())
     tasks.add(t)
     await asyncio.Future()

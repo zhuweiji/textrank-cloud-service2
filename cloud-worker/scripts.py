@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 
 def start():
-    run_process('python run -m cloud_worker.main')
+    run_process('py -m cloud_worker.main')
     
 def test():
     parser = argparse.ArgumentParser(
