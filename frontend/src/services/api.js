@@ -22,17 +22,18 @@ export class HttpService {
         return result;
     }
 
-    static async image_transcribe_service(image) {
+    static async image_transcribe_service(files) {
         let url = `${BACKEND_URL}/image_transcribe`
-        let data = {
-            image: image
+
+        let data = new FormData()
+        for (const file of files) {
+            data.append('images', file, file.name)
         }
 
         let response = await fetch(url,
             {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', },
-                body: JSON.stringify(data)
+                body: data
             });
 
         if (response.status !== 200) {
