@@ -1,0 +1,179 @@
+{
+	"info": {
+		"_postman_id": "d8e3498e-9982-491c-8fff-565d5ca697c1",
+		"name": "CZ4052: Text Rank Server Requests",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "14570473"
+	},
+	"item": [
+		{
+			"name": "Basic Local Implementation",
+			"item": [
+				{
+					"name": "Text Rank Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"message\" : \"Qui irure nisi et veniam eu aute ex culpa enim ea ad amet esse.\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_BASE}}/text_rank",
+							"host": [
+								"{{LOCAL_BASE}}"
+							],
+							"path": [
+								"text_rank"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Base Request",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{LOCAL_BASE}}",
+							"host": [
+								"{{LOCAL_BASE}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Kubernetes Local Implementation",
+			"item": [
+				{
+					"name": "Text Rank Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"message\" : \"Qui irure nisi et veniam eu aute ex culpa enim ea ad amet esse.\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{KUBERNETES_BASE}}/text_rank",
+							"host": [
+								"{{KUBERNETES_BASE}}"
+							],
+							"path": [
+								"text_rank"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Base Request",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{KUBERNETES_BASE}}",
+							"host": [
+								"{{KUBERNETES_BASE}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "TextRank_2 Implementation",
+			"item": [
+				{
+					"name": "Text Rank Request",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);\r",
+									"postman.setEnvironmentVariable(\"JOB_ID\", jsonData.job_created);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"text\" : \"Qui irure nisi et veniam eu aute ex culpa enim ea ad amet esse.\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_BASE}}/api/text_rank",
+							"host": [
+								"{{LOCAL_BASE}}"
+							],
+							"path": [
+								"api",
+								"text_rank"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Text Rank Job Result",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{LOCAL_BASE}}/api/check_task_result?task_id={{JOB_ID}}",
+							"host": [
+								"{{LOCAL_BASE}}"
+							],
+							"path": [
+								"api",
+								"check_task_result"
+							],
+							"query": [
+								{
+									"key": "task_id",
+									"value": "{{JOB_ID}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
