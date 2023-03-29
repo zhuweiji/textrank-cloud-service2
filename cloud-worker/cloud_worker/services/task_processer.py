@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 
 from aio_pika.abc import AbstractIncomingMessage
 from cloud_worker.constants import RABBITMQ_JOB_QUEUE_NAME, RABBITMQ_RESULT_QUEUE_NAME
@@ -7,8 +8,9 @@ from cloud_worker.textrank_module.textrank import TextRank, TextRankKeywordResul
 
 log = logging.getLogger(__name__)
 
-KEYWORD_EXTRACTION = 'KEYWORD_EXTRACTION'
-
+class TaskType(Enum):
+    KEYWORD_EXTRACTION = 'KEYWORD_EXTRACTION'
+    IMAGE_TRANSCRIPTION = 'IMAGE_TRANSCRIPTION'
 
 class TaskProcesor:
     @classmethod
@@ -20,12 +22,22 @@ class TaskProcesor:
         
         log.info(f'processing new {task_type} task')
         
-        if task_type == KEYWORD_EXTRACTION:
+        if task_type == TaskType.KEYWORD_EXTRACTION.value:
             data = message.body.decode()
             
             result =  cls.handle_text_keyword_extraction(data)
             log.info(result)
-            await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, result, {'task_type': KEYWORD_EXTRACTION, 'task_id':task_id})
+            await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, result, {'task_type': TaskType.KEYWORD_EXTRACTION.value, 'task_id':task_id})
+            
+            
+        elif task_type == TaskType.IMAGE_TRANSCRIPTION.value:
+            data = message.body
+            log.warning(message.body)
+            log.warning(message.body.decode())
+            log.warning('image recongition task - to be implemented')
+            
+            
+            
         else:
             log.warning(f'Could not interpret task: {headers}')
             
