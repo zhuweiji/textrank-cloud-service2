@@ -129,3 +129,15 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+/fastapi-server/.idea/inspectionProfiles/Project_Default.xml
+/fastapi-server/.idea/fastapi-server.iml
+/.idea/misc.xml
+/fastapi-server/.idea/misc.xml
+/.idea/modules.xml
+/fastapi-server/.idea/modules.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/fastapi-server/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/textrank-cloud-service2.iml
+/.idea/vcs.xml
+/fastapi-server/.idea/vcs.xml
