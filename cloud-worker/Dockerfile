@@ -7,5 +7,5 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip install -r requirements.txt
 
-COPY . /app
+COPY . .
 ENTRYPOINT python3 -m cloud_worker.main
