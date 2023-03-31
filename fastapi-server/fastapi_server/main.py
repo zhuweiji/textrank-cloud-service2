@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import uvicorn
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_server.constants import RABBITMQ_JOB_QUEUE_NAME, RABBITMQ_RESULT_QUEUE_NAME
@@ -10,7 +11,6 @@ from fastapi_server.routers import router
 from fastapi_server.services.connection_handlers import RabbitMQHandler
 from fastapi_server.services.task_processor import JobProcessor
 from sse_starlette.sse import EventSourceResponse
-import uvicorn
 
 logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -56,6 +56,9 @@ async def before_start():
 def root_endpoint():
     return healthcheck_response()
 
+@app.get('/heartbeat')
+def heartbeat_endpoint():
+    return healthcheck_response()
 
 if (__name__ == "__main__"):
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")

@@ -65,15 +65,9 @@ export function Homepage(props) {
     const [selectedJob, setSelectedJob] = React.useState(null); //the currently selected job in the 'jobs created' tab
     const [connectionAlive, setConnectionAlive] = React.useState(null);
 
-
-    const [selectedTab, setSelectedTab] = React.useState(0);
-
     const [completedJobs, setCompletedJobs] = React.useState(new Map());
     const [idOfDisplayedJobResult, setIdOfDisplayedJobResult] = React.useState(null);
 
-    const handleTabChange = (event, newValue) => {
-        setSelectedTab(newValue);
-    };
 
     const textFieldRef = useRef('') // a ref for the textField to enter ML input
 
@@ -134,16 +128,22 @@ export function Homepage(props) {
         setImageModelUploadedFiles((old) => [...old, ...files]);
     };
 
-    const checkConnectionToBackend = () => {
+    const backendConnectionDisplay = () => {
         let iconColor;
+        let message;
         if (connectionAlive === null) {
             iconColor = 'disabled'
+            message = "We're checking your connection now"
+        } else if (!connectionAlive) {
+            iconColor = '#b2102f'
+            message = "The connection to the backend server is down currently"
         } else {
-            iconColor = connectionAlive ? 'success' : 'secondary'
+            iconColor = '#357a38'
+            message = "You're connected!"
         }
-        return <Tooltip title={`Connected to backend: ${connectionAlive}`} >
+        return <Tooltip title={message} >
             <IconButton>
-                <CloudIcon color={iconColor} />
+                <CloudIcon sx={{ color: iconColor }} />
             </IconButton>
         </Tooltip >
 
@@ -156,7 +156,7 @@ export function Homepage(props) {
         }
 
         heartbeatCheck();
-        setTimeout(() => {
+        setInterval(() => {
             heartbeatCheck();
         }, 5000)
         return () => { }
@@ -182,14 +182,18 @@ export function Homepage(props) {
     }
 
 
-    function TabComponent() {
+    const ModelSelectionTabComponent = React.memo(() => {
+        const [selectedTab, setSelectedTab] = React.useState(0);
+        const handleTabChange = (event, newValue) => {
+            setSelectedTab(newValue);
+        };
+
         return <Box sx={{ height: '20rem' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs value={selectedTab} onChange={handleTabChange} aria-label="basic tabs example">
                     <Tab label="Model One" {...a11yProps(0)} />
                     <Tab label="Model Two" {...a11yProps(1)} />
                     <Tab label="Model Three" {...a11yProps(2)} />
-                    <Tab label="Jobs Created" {...a11yProps(3)} />
                 </Tabs>
             </Box>
 
@@ -253,32 +257,28 @@ export function Homepage(props) {
             <TabPanel value={selectedTab} index={2}>
                 Description Three
             </TabPanel>
-
-
-            <TabPanel value={selectedTab} index={3}>
-                {
-                    jobsCreated.length > 0 &&
-                    <JobsCreatedPanel />
-                }
-                {
-                    jobsCreated.length <= 0 &&
-                    <Typography textAlign='center'>No jobs have been created yet.</Typography>
-
-                }
-            </TabPanel>
-
-
         </Box>
-    }
+    })
 
-    return <>
-        <Grid container spacing={5} pl={10} pt={10}>
-            <Grid xs={6}>
 
-                <TabComponent />
 
-            </Grid>
-            <Grid xs={6}>
+    const JobViewerTabComponent = React.memo(() => {
+        const [tabValue, setTabValue] = React.useState(0);
+
+        const handleTabChange2 = (event, newValue) => {
+            setTabValue(newValue);
+        }
+
+        return <>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs value={tabValue} onChange={handleTabChange2} aria-label="basic tabs example">
+                    <Tab label="Result Display" {...a11yProps(0)} />
+                    <Tab label="Jobs Created" {...a11yProps(1)} />
+                </Tabs>
+            </Box>
+
+            <TabPanel value={tabValue} index={0}>
+                <NetworkGraphComponent data={data} width={700} height={600} />
                 {
                     completedJobs && completedJobs.get(idOfDisplayedJobResult) &&
                     Object.entries(completedJobs.get(idOfDisplayedJobResult)).map(([k, v]) => {
@@ -290,24 +290,44 @@ export function Homepage(props) {
                 {
                     (!completedJobs || !completedJobs.get(idOfDisplayedJobResult)) &&
                     <Stack direction="column" justifyContent="space-between" alignItems="center" spacing={2}>
-                        <Typography>Stuff will be displayed here when you finish a job</Typography>
+                        <Typography>Data will be displayed here when you finish a job</Typography>
                     </Stack>
 
                 }
-
-                <NetworkGraphComponent data={data} width={700} height={600} />
-
+            </TabPanel>
 
 
+            <TabPanel value={tabValue} index={1}>
+                {
+                    jobsCreated.length > 0 &&
+                    <JobsCreatedPanel />
+                }
+                {
+                    jobsCreated.length <= 0 &&
+                    <Typography textAlign='center' fontStyle={'italic'} pt={5}>No jobs have been created yet.</Typography>
+
+                }
+            </TabPanel>
+        </>
+
+    })
+
+    return <>
+        <Grid container spacing={5} pl={10} pt={10}>
+            <Grid xs={6}>
+                <ModelSelectionTabComponent />
+            </Grid>
+            <Grid xs={6}>
+                <JobViewerTabComponent />
             </Grid>
         </Grid>
 
         <Box sx={{
-            display: 'flex',
-            justifyContent: 'flex-start',
-            pl: 5
+            position: 'absolute',
+            bottom: 20,
+            right: 20
         }}>
-            {checkConnectionToBackend()}
+            {backendConnectionDisplay()}
         </Box>
 
     </>

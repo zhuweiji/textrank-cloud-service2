@@ -73,12 +73,17 @@ export class HttpService {
     }
 
     static async heartbeat() {
-        let url = `${BACKEND_URL.replace('/api', '')}/`
-        let response = await fetch(url,
-            {
-                method: 'GET',
-            });
-        return response.status === 200;
+        let url = `${BACKEND_URL.replace('/api', '')}/heartbeat`
+        try {
+            let response = await fetch(url,
+                {
+                    method: 'GET',
+                });
+            return response.status === 200;
+        } catch (Error) {
+            return false;
+        }
+
     }
 
 
