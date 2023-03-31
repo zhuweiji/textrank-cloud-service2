@@ -3,6 +3,7 @@ from enum import Enum
 
 from aio_pika.abc import AbstractIncomingMessage
 from cloud_worker.constants import RABBITMQ_JOB_QUEUE_NAME, RABBITMQ_RESULT_QUEUE_NAME
+from cloud_worker.imagerank_module.image_transcribe import ImageInterrogator
 from cloud_worker.services.connection_handlers import RabbitMQHandler
 from cloud_worker.textrank_module.textrank import TextRank, TextRankKeywordResult
 
@@ -13,6 +14,8 @@ class TaskType(Enum):
     IMAGE_TRANSCRIPTION = 'IMAGE_TRANSCRIPTION'
 
 class TaskProcesor:
+    work_queue_provider = RabbitMQHandler
+    
     @classmethod
     async def process_task(cls, message: AbstractIncomingMessage):
         headers = message.headers
@@ -31,9 +34,9 @@ class TaskProcesor:
             
             
         elif task_type == TaskType.IMAGE_TRANSCRIPTION.value:
-            data = message.body
-            log.warning(message.body)
-            log.warning(message.body.decode())
+            data = message.body.decode()
+            result = ImageInterrogator.convert_image_to_text(data)
+            log.warning(result)
             log.warning('image recongition task - to be implemented')
             
             
@@ -43,7 +46,7 @@ class TaskProcesor:
             
     @classmethod
     async def listen_for_incoming_tasks(cls):
-        await RabbitMQHandler.listen(RABBITMQ_JOB_QUEUE_NAME, on_message_handler=TaskProcesor.process_task)
+        await cls.work_queue_provider.listen(RABBITMQ_JOB_QUEUE_NAME, on_message_handler=TaskProcesor.process_task)
     
     @classmethod
     def handle_text_keyword_extraction(cls, request_text):
