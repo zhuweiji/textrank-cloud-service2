@@ -2,6 +2,7 @@ import asyncio
 import logging
 import shutil
 import tempfile
+from dataclasses import dataclass
 from typing import List
 
 from fastapi import (
@@ -19,7 +20,7 @@ from fastapi_server.entities.POST_bodies import Text_Transcribe_Request
 from fastapi_server.entities.responses import (
     endpoint_not_implemented_response,
     job_created_response,
-    jobs_created_response,
+    job_created_response__multiple,
     text_response,
 )
 from fastapi_server.services.task_processor import JobProcessor
@@ -46,33 +47,37 @@ async def text_rank_route(body: Text_Transcribe_Request):
 
 @router.post('/image_transcribe')
 async def image_transcribe_route(images: list[UploadFile]):
+    get_file_suffix = lambda image: image.filename.split('.')[-1] 
     
-    file_suffix_is_img = lambda image: image.filename.split('.')[-1] in ('jpg','png')
-    if not [file_suffix_is_img(i) for i in images]:
-        raise HTTPException(400, 'The file must be either a .jpg or .png file')
+    @dataclass
+    class ImageToBeProcessed:
+        data: bytes
+        codec: str
     
-    file_objs = [image.file for image in images]
-    
-    # create a copy of the files because otherwise we get a IOError file closed 
-    file_copies = [tempfile.NamedTemporaryFile(delete=True) for _ in file_objs]
-    for copy,file in zip(file_copies, file_objs):
-        file_data = file.read() 
+    data = []
+    for image in images:
+        suffix = get_file_suffix(image)
+        if suffix not in ('png','jpg'): raise HTTPException(400, 'The file must be either a .jpg or .png file')
+        
+        file_data = image.file.read()
         if len(file_data) > 52_428_800: #50mb
             raise HTTPException(status_code=413, detail='Image files cannot be larger than 50mb')
         
-        copy.write(file_data)
+        data.append(ImageToBeProcessed(file_data, suffix))
     
-    jobs = [JobProcessor.create_image_rank_job(i) for i in file_copies]
+    
+    jobs = [JobProcessor.create_image_rank_job(i.data, i.codec) for i in data]
     result = await asyncio.gather(*jobs)
     
     successfully_started_jobs = [i.task_id for i in result if i]
     unsuccessful_jobs         = [i for i in result if not i]
     
+    log.warning(successfully_started_jobs)
     if unsuccessful_jobs:
         log.warning(f'unable to start some image transcribe jobs: {unsuccessful_jobs}')
     
     if jobs:
-        return jobs_created_response(successfully_started_jobs)
+        return job_created_response__multiple(successfully_started_jobs)
     else:
         return text_response(f'unable to create job. please try again')
     

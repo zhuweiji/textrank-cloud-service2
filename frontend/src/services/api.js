@@ -52,7 +52,6 @@ export class HttpService {
             task_id: task_id,
         })
 
-
         let response = await fetch(url,
             {
                 method: 'GET',

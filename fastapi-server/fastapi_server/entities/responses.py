@@ -4,7 +4,7 @@ from typing import List
 from fastapi import Response
 
 
-def jobs_created_response(task_ids:List[str]):
+def job_created_response__multiple(task_ids:List[str]):
     return {'task_id_list': task_ids}
 
 def job_created_response(task_id:str):
@@ -12,6 +12,9 @@ def job_created_response(task_id:str):
 
 def text_response(text:str):
     return {'message': text}
+
+def list_response(l: List):
+    return {'data': l}
 
 def healthcheck_response():
     return {'message': "we're up!"}

@@ -37,7 +37,7 @@ class RabbitMQHandler:
             await asyncio.Future() # keep the listener running indefinitely 
 
     @classmethod
-    async def publish(cls, queue_name:str, message: Union[str, BinaryIO, tempfile.SpooledTemporaryFile, tempfile._TemporaryFileWrapper], headers=None) -> None:
+    async def publish(cls, queue_name:str, message: Union[str, BinaryIO, tempfile.SpooledTemporaryFile, tempfile._TemporaryFileWrapper, bytes], headers=None) -> None:
         headers = headers or {}
         connection = await aio_pika.connect(RABBITMQ_CONNECTION_URL)
 
@@ -48,6 +48,8 @@ class RabbitMQHandler:
                 message_body = message.encode()
             elif isinstance(message, (BinaryIO, tempfile.SpooledTemporaryFile, tempfile._TemporaryFileWrapper)):
                 message_body = message.read()
+            elif isinstance(message, bytes):
+                message_body = message
             else:
                 log.exception(f"Tried to publish message of type{type(message)}")
                 raise ValueError

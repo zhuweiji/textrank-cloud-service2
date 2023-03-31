@@ -27,6 +27,7 @@ class TaskType(Enum):
 class JobSpecification:
     task_type: TaskType
     data: Union[str, BinaryIO, tempfile.SpooledTemporaryFile, tempfile._TemporaryFileWrapper]
+    other_information: dict = field(default_factory=lambda: {})
     
     task_id: str = field(default_factory=lambda: ulid())
     
@@ -35,18 +36,16 @@ class JobProcessor:
     completed_jobs = {}
     
     @classmethod
-    async def create_image_rank_job(cls, file: Union[BinaryIO, tempfile.SpooledTemporaryFile, tempfile._TemporaryFileWrapper]):
-        log.warning(file)
+    async def create_image_rank_job(cls, file: Union[BinaryIO, tempfile.SpooledTemporaryFile, tempfile._TemporaryFileWrapper], codec: str):
         job = JobSpecification(
             task_type=TaskType.IMAGE_TRANSCRIPTION,
-            data=file)
+            data=file,
+            other_information={'codec': codec}
+            )
         
         job_start_result = await cls.publish_new_job(job)
         return job if job_start_result else False
             
-        
-        
-
     @classmethod
     async def create_text_rank_job(cls, request_body: Text_Transcribe_Request):
         request_text = request_body.text
@@ -59,7 +58,7 @@ class JobProcessor:
         
     @classmethod 
     async def publish_new_job(cls, job: JobSpecification):
-        headers = {'task_type': job.task_type.value, 'task_id':job.task_id}
+        headers = {'task_type': job.task_type.value, 'task_id':job.task_id, 'other_info': job.other_information}
         log.info(headers)
         try:
             await RabbitMQHandler.publish(RABBITMQ_JOB_QUEUE_NAME, job.data, headers)
@@ -78,6 +77,16 @@ class JobProcessor:
         if task_type == TaskType.KEYWORD_EXTRACTION.value:
             job = JobSpecification(
                 task_type=TaskType.KEYWORD_EXTRACTION,
+                data=message.body.decode(),
+                task_id=str(task_id)
+                )
+            cls.completed_jobs[task_id] = job
+        elif task_type == TaskType.IMAGE_TRANSCRIPTION.value:
+            log.info(message)
+            log.info(message.body.decode())
+            
+            job = JobSpecification(
+                task_type=TaskType.IMAGE_TRANSCRIPTION,
                 data=message.body.decode(),
                 task_id=str(task_id)
                 )
