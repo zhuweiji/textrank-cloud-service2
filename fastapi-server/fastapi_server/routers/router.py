@@ -56,12 +56,16 @@ async def image_transcribe_route(images: list[UploadFile]):
     # create a copy of the files because otherwise we get a IOError file closed 
     file_copies = [tempfile.NamedTemporaryFile(delete=True) for _ in file_objs]
     for copy,file in zip(file_copies, file_objs):
-        copy.write(file.read())
+        file_data = file.read() 
+        if len(file_data) > 52_428_800: #50mb
+            raise HTTPException(status_code=413, detail='Image files cannot be larger than 50mb')
+        
+        copy.write(file_data)
     
     jobs = [JobProcessor.create_image_rank_job(i) for i in file_copies]
     result = await asyncio.gather(*jobs)
     
-    successfully_started_jobs = [i for i in result if i]
+    successfully_started_jobs = [i.task_id for i in result if i]
     unsuccessful_jobs         = [i for i in result if not i]
     
     if unsuccessful_jobs:

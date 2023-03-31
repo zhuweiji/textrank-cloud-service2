@@ -13,6 +13,7 @@ import { styled } from '@mui/material/styles';
 import { FileUploader } from "react-drag-drop-files";
 
 import { HttpService } from '../services/api.js'
+import { NetworkGraphComponent } from '../components/NetworkGraph.js'
 
 class JobInProgress {
     constructor(task_id, task_type, completed) {
@@ -30,6 +31,26 @@ const MLServices = {
     ImageModel: 'ImageModel',
 }
 
+
+let data = {
+    nodes: [
+        { id: 'Myriel', group: 1 },
+        { id: 'Napoleon', group: 1 },
+        { id: 'ASD', group: 1 },
+        { id: 'DAS', group: 1 },
+        { id: 'BB', group: 1 },
+
+    ],
+    links: [
+        { source: 'Myriel', target: 'Napoleon', value: 1 },
+        { source: 'Napoleon', target: 'DAS', value: 1 },
+        { source: 'Napoleon', target: 'Napoleon', value: 1 },
+        { source: 'ASD', target: 'DAS', value: 1 },
+        { source: 'BB', target: 'DAS', value: 1 },
+        { source: 'ASD', target: 'BB', value: 1 },
+
+    ]
+}
 
 export function Homepage(props) {
     const acceptedImageFileTypes = ["JPG", "PNG"];
@@ -238,6 +259,7 @@ export function Homepage(props) {
                     </Stack>
 
                 }
+                <NetworkGraphComponent data={data} />
 
             </Grid>
         </Grid>
