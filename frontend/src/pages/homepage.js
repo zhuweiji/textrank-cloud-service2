@@ -4,8 +4,12 @@ import React, { useRef, Component } from 'react'
 
 import {
     Button, Typography, TextField, Box, Stack, Tabs, Tab, Paper, Pagination, Container,
-    List, ListItem, ListItemText,
+    List, ListItem, ListItemText, Tooltip, IconButton
 } from '@mui/material';
+
+import CloudIcon from '@mui/icons-material/Cloud';
+// import { FiberManualRecordIcon, SettingsInputAntennaIcon } from '@mui/icons-material';
+
 import Grid from '@mui/material/Unstable_Grid2'; // Grid version 2
 import { height } from '@mui/system';
 import { styled } from '@mui/material/styles';
@@ -59,6 +63,8 @@ export function Homepage(props) {
 
     const [jobsCreated, setJobsCreated] = React.useState([]);
     const [selectedJob, setSelectedJob] = React.useState(null); //the currently selected job in the 'jobs created' tab
+    const [connectionAlive, setConnectionAlive] = React.useState(null);
+
 
     const [selectedTab, setSelectedTab] = React.useState(0);
 
@@ -127,6 +133,35 @@ export function Homepage(props) {
         let files = Object.values(fileList);
         setImageModelUploadedFiles((old) => [...old, ...files]);
     };
+
+    const checkConnectionToBackend = () => {
+        let iconColor;
+        if (connectionAlive === null) {
+            iconColor = 'disabled'
+        } else {
+            iconColor = connectionAlive ? 'success' : 'secondary'
+        }
+        return <Tooltip title={`Connected to backend: ${connectionAlive}`} >
+            <IconButton>
+                <CloudIcon color={iconColor} />
+            </IconButton>
+        </Tooltip >
+
+    }
+
+    React.useEffect(() => {
+        async function heartbeatCheck() {
+            let response = await HttpService.heartbeat();
+            setConnectionAlive(response);
+        }
+
+        heartbeatCheck();
+        setTimeout(() => {
+            heartbeatCheck();
+        }, 5000)
+        return () => { }
+
+    }, [])
 
     function JobsCreatedPanel() {
         return <Box>
@@ -237,7 +272,7 @@ export function Homepage(props) {
     }
 
     return <>
-        <Grid container spacing={5} p={10}>
+        <Grid container spacing={5} pl={10} pt={10}>
             <Grid xs={6}>
 
                 <TabComponent />
@@ -259,10 +294,22 @@ export function Homepage(props) {
                     </Stack>
 
                 }
-                <NetworkGraphComponent data={data} />
+
+                <NetworkGraphComponent data={data} width={700} height={600} />
+
+
 
             </Grid>
         </Grid>
+
+        <Box sx={{
+            display: 'flex',
+            justifyContent: 'flex-start',
+            pl: 5
+        }}>
+            {checkConnectionToBackend()}
+        </Box>
+
     </>
 
 }
