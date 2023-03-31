@@ -15,7 +15,8 @@ services:
       timeout: 10s
       retries: 5
   web:
-    image: shafiq98/text_rank_server:1
+    image: textrank/text_rank_server
+    build: fastapi-server/
     hostname: web
     restart: on-failure
     ports:
@@ -26,9 +27,10 @@ services:
     links:
       - rabbit
   worker:
-    image: shafiq98/text_rank_worker:1
+    image: textrank/text_rank_worker:1
+    build: cloud-worker/
     deploy:
-      replicas: 3
+      replicas: 1
     links:
       - rabbit
     depends_on:
