@@ -107,7 +107,7 @@ export function Homepage(props) {
         if (response['task_id']) {
             task_ids = [response.task_id]
         } else if (response['task_id_list']) {
-            task_ids = [response.task_id_list]
+            task_ids = response.task_id_list
         } else {
             console.error(`unknown response for job start: ${response}}`)
             throw Error;
@@ -122,7 +122,6 @@ export function Homepage(props) {
         }
 
         setJobsCreated((i) => [...i, ...jobs])
-
         for (let job of jobs) {
             HttpService.get_job_result__long_poll(job.task_id, job).then((job_result) => {
                 handleJobCompletion(job_result, job.task_id, job)
@@ -138,11 +137,7 @@ export function Homepage(props) {
 
     const displaySelectedJobResult = async () => {
         setIdOfDisplayedJobResult(selectedJob.task_id);
-        console.log(completedJobs);
-        console.log(selectedJob.task_id)
-        console.log(
-            completedJobs.get(selectedJob.task_id)
-        )
+        setJobViewerTab(0);
     }
 
 
@@ -283,7 +278,7 @@ export function Homepage(props) {
                 {
                     completedJobs && completedJobs.get(idOfDisplayedJobResult) &&
                     Object.entries(completedJobs.get(idOfDisplayedJobResult)).map(([k, v]) => {
-                        return <Typography>{k}: {v}</Typography>
+                        return <Typography key={k}>{k}: {v}</Typography>
                     })
 
                 }
@@ -313,9 +308,9 @@ export function Homepage(props) {
 
     })
 
-    function JobsCreatedPanel() {
+    const JobsCreatedPanel = React.memo(() => {
         return <Box>
-            <Pagination count={jobsCreated.length} onChange={(event, page) => setSelectedJob(jobsCreated[page - 1])}> </Pagination>
+            <Pagination count={jobsCreated.length} onChange={(event, page) => { setSelectedJob(jobsCreated[page - 1]) }}> </Pagination>
             {
                 selectedJob && <Box pt={5}>
                     <Typography textAlign='center'>Task ID: {selectedJob.task_id}</Typography>
@@ -329,7 +324,7 @@ export function Homepage(props) {
             }
 
         </Box>
-    }
+    })
 
     return <>
         <Grid container spacing={5} pl={10} pt={10}>
