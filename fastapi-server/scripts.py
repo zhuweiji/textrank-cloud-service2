@@ -10,7 +10,7 @@ logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', le
 log = logging.getLogger(__name__)
 
 def start():
-    run_process('uvicorn fastapi_server.main:app --host 0.0.0.0 --port 8000 --reload')
+    run_process('uvicorn fastapi_server.main:app --host 0.0.0.0 --port 8080 --reload')
     
 def test():
     parser = argparse.ArgumentParser(
