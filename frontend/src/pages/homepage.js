@@ -4,8 +4,12 @@ import React, { useRef, Component } from 'react'
 
 import {
     Button, Typography, TextField, Box, Stack, Tabs, Tab, Paper, Pagination, Container,
-    List, ListItem, ListItemText,
+    List, ListItem, ListItemText, Tooltip, IconButton
 } from '@mui/material';
+
+import CloudIcon from '@mui/icons-material/Cloud';
+// import { FiberManualRecordIcon, SettingsInputAntennaIcon } from '@mui/icons-material';
+
 import Grid from '@mui/material/Unstable_Grid2'; // Grid version 2
 import { height } from '@mui/system';
 import { styled } from '@mui/material/styles';
@@ -52,6 +56,8 @@ let data = {
     ]
 }
 
+const heartbeatInterval = 10000;
+
 export function Homepage(props) {
     const acceptedImageFileTypes = ["JPG", "PNG"];
 
@@ -59,17 +65,21 @@ export function Homepage(props) {
 
     const [jobsCreated, setJobsCreated] = React.useState([]);
     const [selectedJob, setSelectedJob] = React.useState(null); //the currently selected job in the 'jobs created' tab
-
-    const [selectedTab, setSelectedTab] = React.useState(0);
+    const [connectionAlive, setConnectionAlive] = React.useState(null);
 
     const [completedJobs, setCompletedJobs] = React.useState(new Map());
     const [idOfDisplayedJobResult, setIdOfDisplayedJobResult] = React.useState(null);
 
-    const handleTabChange = (event, newValue) => {
-        setSelectedTab(newValue);
-    };
+    const [modelSelectionTab, setModelSelectionTab] = React.useState(0);
+    const [jobViewerTab, setJobViewerTab] = React.useState(0);
 
     const textFieldRef = useRef('') // a ref for the textField to enter ML input
+
+    const handleUploadImage = (fileList) => {
+        console.log(fileList)
+        let files = Object.values(fileList);
+        setImageModelUploadedFiles((old) => [...old, ...files]);
+    };
 
     const handleSubmitTextRankJob = async () => {
         let value = textFieldRef.current.value;
@@ -79,7 +89,7 @@ export function Homepage(props) {
     const handleSubmitImageModelJob = async () => {
         let files = imageModelUploadedFiles;
         createNewJob(files, MLServices.ImageModel);
-
+        setImageModelUploadedFiles([]);
     }
 
     const createNewJob = async (data, service) => {
@@ -92,20 +102,33 @@ export function Homepage(props) {
         }
 
         let response = await resultPromise;
-        let task_id = response.task_id
+        let task_ids;
 
-        console.log(response)
+        if (response['task_id']) {
+            task_ids = [response.task_id]
+        } else if (response['task_id_list']) {
+            task_ids = [response.task_id_list]
+        } else {
+            console.error(`unknown response for job start: ${response}}`)
+            throw Error;
+        }
+        console.log(task_ids)
+        let jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
+        console.log(jobs)
 
-        let job = new JobInProgress(task_id, service, false)
 
         if (jobsCreated.length === 0) {
-            setSelectedJob(job);
+            setSelectedJob(jobs[0]);
         }
 
-        setJobsCreated((i) => [...i, job])
+        setJobsCreated((i) => [...i, ...jobs])
 
-        let job_result = await HttpService.get_job_result__long_poll(task_id, job);
-        handleJobCompletion(job_result, task_id, job)
+        for (let job of jobs) {
+            HttpService.get_job_result__long_poll(job.task_id, job).then((job_result) => {
+                handleJobCompletion(job_result, job.task_id, job)
+                console.log(job_result)
+            })
+        }
     }
 
     const handleJobCompletion = async (result, task_id, job) => {
@@ -122,44 +145,62 @@ export function Homepage(props) {
         )
     }
 
-    const handleUploadImage = (fileList) => {
-        console.log(fileList)
-        let files = Object.values(fileList);
-        setImageModelUploadedFiles((old) => [...old, ...files]);
-    };
 
-    function JobsCreatedPanel() {
-        return <Box>
-            <Pagination count={jobsCreated.length} onChange={(event, page) => setSelectedJob(jobsCreated[page - 1])}> </Pagination>
-            {
-                selectedJob && <Box pt={5}>
-                    <Typography textAlign='center'>Task ID: {selectedJob.task_id}</Typography>
-                    <Typography textAlign='center'>task_type: {selectedJob.task_type}</Typography>
-                    <Typography textAlign='center'>completed: {selectedJob.completed.toString()}</Typography>
 
-                    <Stack direction="row" justifyContent="flex-end" spacing={2} mt={5}>
-                        <Button variant="outlined" onClick={displaySelectedJobResult}>View Job Result</Button>
-                    </Stack>
-                </Box>
-            }
+    const backendConnectionDisplay = () => {
+        let iconColor;
+        let message;
+        if (connectionAlive === null) {
+            iconColor = 'disabled'
+            message = "We're checking your connection now"
+        } else if (!connectionAlive) {
+            iconColor = '#b2102f'
+            message = "The connection to the backend server is down currently"
+        } else {
+            iconColor = '#357a38'
+            message = "You're connected!"
+        }
+        return <Tooltip title={message} >
+            <IconButton>
+                <CloudIcon sx={{ color: iconColor }} />
+            </IconButton>
+        </Tooltip >
 
-        </Box>
     }
 
+    React.useEffect(() => {
+        async function heartbeatCheck() {
+            let response = await HttpService.heartbeat();
+            setConnectionAlive(response);
+        }
 
-    function TabComponent() {
+        heartbeatCheck();
+        setInterval(() => {
+            heartbeatCheck();
+        }, heartbeatInterval)
+        return () => { }
+
+    }, [])
+
+
+
+
+    const ModelSelectionTabComponent = React.memo(() => {
+        const handleTabChange = (event, newValue) => {
+            setModelSelectionTab(newValue);
+        };
+
         return <Box sx={{ height: '20rem' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={selectedTab} onChange={handleTabChange} aria-label="basic tabs example">
+                <Tabs value={modelSelectionTab} onChange={handleTabChange} aria-label="basic tabs example">
                     <Tab label="Model One" {...a11yProps(0)} />
                     <Tab label="Model Two" {...a11yProps(1)} />
                     <Tab label="Model Three" {...a11yProps(2)} />
-                    <Tab label="Jobs Created" {...a11yProps(3)} />
                 </Tabs>
             </Box>
 
 
-            <TabPanel value={selectedTab} index={0}>
+            <TabPanel value={modelSelectionTab} index={0}>
                 <Typography pb={3} variant='h6'>TextRank Keyword Analysis</Typography>
                 <Typography>
                     Cupidatat ad magna labore cillum non nulla anim do culpa velit ad qui incididunt.
@@ -180,7 +221,7 @@ export function Homepage(props) {
             </TabPanel>
 
 
-            <TabPanel value={selectedTab} index={1}>
+            <TabPanel value={modelSelectionTab} index={1}>
                 <Typography pb={3} variant='h6'>Some Image Model</Typography>
                 <Typography >
                     Cupidatat ad magna labore cillum non nulla anim do culpa velit ad qui incididunt.
@@ -215,35 +256,30 @@ export function Homepage(props) {
             </TabPanel>
 
 
-            <TabPanel value={selectedTab} index={2}>
+            <TabPanel value={modelSelectionTab} index={2}>
                 Description Three
             </TabPanel>
-
-
-            <TabPanel value={selectedTab} index={3}>
-                {
-                    jobsCreated.length > 0 &&
-                    <JobsCreatedPanel />
-                }
-                {
-                    jobsCreated.length <= 0 &&
-                    <Typography textAlign='center'>No jobs have been created yet.</Typography>
-
-                }
-            </TabPanel>
-
-
         </Box>
-    }
+    })
 
-    return <>
-        <Grid container spacing={5} p={10}>
-            <Grid xs={6}>
 
-                <TabComponent />
 
-            </Grid>
-            <Grid xs={6}>
+    const JobViewerTabComponent = React.memo(() => {
+
+        const handleTabChange2 = (event, newValue) => {
+            setJobViewerTab(newValue);
+        }
+
+        return <>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs value={jobViewerTab} onChange={handleTabChange2} aria-label="basic tabs example">
+                    <Tab label="Result Display" {...a11yProps(0)} />
+                    <Tab label="Jobs Created" {...a11yProps(1)} />
+                </Tabs>
+            </Box>
+
+            <TabPanel value={jobViewerTab} index={0}>
+                <NetworkGraphComponent data={data} width={700} height={600} />
                 {
                     completedJobs && completedJobs.get(idOfDisplayedJobResult) &&
                     Object.entries(completedJobs.get(idOfDisplayedJobResult)).map(([k, v]) => {
@@ -255,14 +291,64 @@ export function Homepage(props) {
                 {
                     (!completedJobs || !completedJobs.get(idOfDisplayedJobResult)) &&
                     <Stack direction="column" justifyContent="space-between" alignItems="center" spacing={2}>
-                        <Typography>Stuff will be displayed here when you finish a job</Typography>
+                        <Typography>Data will be displayed here when you finish a job</Typography>
                     </Stack>
 
                 }
-                <NetworkGraphComponent data={data} />
+            </TabPanel>
 
+
+            <TabPanel value={jobViewerTab} index={1}>
+                {
+                    jobsCreated.length > 0 &&
+                    <JobsCreatedPanel />
+                }
+                {
+                    jobsCreated.length <= 0 &&
+                    <Typography textAlign='center' fontStyle={'italic'} pt={5}>No jobs have been created yet.</Typography>
+
+                }
+            </TabPanel>
+        </>
+
+    })
+
+    function JobsCreatedPanel() {
+        return <Box>
+            <Pagination count={jobsCreated.length} onChange={(event, page) => setSelectedJob(jobsCreated[page - 1])}> </Pagination>
+            {
+                selectedJob && <Box pt={5}>
+                    <Typography textAlign='center'>Task ID: {selectedJob.task_id}</Typography>
+                    <Typography textAlign='center'>task_type: {selectedJob.task_type}</Typography>
+                    <Typography textAlign='center'>completed: {selectedJob.completed.toString()}</Typography>
+
+                    <Stack direction="row" justifyContent="flex-end" spacing={2} mt={5}>
+                        <Button variant="outlined" onClick={displaySelectedJobResult}>View Job Result</Button>
+                    </Stack>
+                </Box>
+            }
+
+        </Box>
+    }
+
+    return <>
+        <Grid container spacing={5} pl={10} pt={10}>
+            <Grid xs={6}>
+                <ModelSelectionTabComponent />
+            </Grid>
+            <Grid xs={6}>
+                <JobViewerTabComponent />
             </Grid>
         </Grid>
+
+        <Box sx={{
+            position: 'absolute',
+            bottom: 20,
+            right: 20
+        }}>
+            {backendConnectionDisplay()}
+        </Box>
+
     </>
 
 }

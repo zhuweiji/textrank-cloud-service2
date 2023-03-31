@@ -1,4 +1,5 @@
 import logging
+from io import BytesIO
 from pathlib import Path
 from typing import TextIO, Union
 
@@ -8,10 +9,17 @@ from PIL import Image
 log = logging.getLogger(__name__)
 
 class ImageInterrogator:
-    interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
+    interrogator = None
     
     @classmethod
-    def convert_image_to_text(cls, fileobj: Union[str, Path, bytes]):
+    def load_model(cls):
+        if not cls.interrogator:
+            cls.interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
+    
+    @classmethod
+    def convert_image_to_text(cls, fileobj: Union[str, Path, bytes, BytesIO]):
+        cls.load_model()
+        
         try:
             image = Image.open(fileobj).convert('RGB')
             log.info(image)
@@ -20,4 +28,3 @@ class ImageInterrogator:
         except:
             log.exception('Exception while trying to run CLIP on an image')
         
-

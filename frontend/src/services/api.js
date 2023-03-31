@@ -52,7 +52,6 @@ export class HttpService {
             task_id: task_id,
         })
 
-
         let response = await fetch(url,
             {
                 method: 'GET',
@@ -70,6 +69,20 @@ export class HttpService {
         }
         let result = await response.json();
         return result;
+    }
+
+    static async heartbeat() {
+        let url = `${BACKEND_URL.replace('/api', '')}/heartbeat`
+        try {
+            let response = await fetch(url,
+                {
+                    method: 'GET',
+                });
+            return response.status === 200;
+        } catch (Error) {
+            return false;
+        }
+
     }
 
 

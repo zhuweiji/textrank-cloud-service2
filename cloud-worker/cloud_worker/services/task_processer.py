@@ -1,3 +1,4 @@
+import io
 import logging
 from enum import Enum
 
@@ -8,6 +9,8 @@ from cloud_worker.services.connection_handlers import RabbitMQHandler
 from cloud_worker.textrank_module.textrank import TextRank, TextRankKeywordResult
 
 log = logging.getLogger(__name__)
+from PIL import Image
+
 
 class TaskType(Enum):
     KEYWORD_EXTRACTION = 'KEYWORD_EXTRACTION'
@@ -22,6 +25,7 @@ class TaskProcesor:
         
         task_type = headers['task_type']
         task_id = headers['task_id']
+        other_info:dict = headers['other_info'] # type: ignore
         
         log.info(f'processing new {task_type} task')
         
@@ -34,10 +38,14 @@ class TaskProcesor:
             
             
         elif task_type == TaskType.IMAGE_TRANSCRIPTION.value:
-            data = message.body.decode()
-            result = ImageInterrogator.convert_image_to_text(data)
+            
+            image_data = message.body
+            codec = other_info['codec']
+            image_obj = io.BytesIO(image_data)
+            
+            result = ImageInterrogator.convert_image_to_text(image_obj)
             log.warning(result)
-            log.warning('image recongition task - to be implemented')
+            await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, result, {'task_type': TaskType.IMAGE_TRANSCRIPTION.value, 'task_id':task_id})
             
             
             

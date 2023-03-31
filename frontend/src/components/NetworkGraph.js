@@ -2,7 +2,7 @@ import React from 'react'
 import * as d3 from "d3";
 import { select } from "d3"
 
-export function NetworkGraphComponent({ data }) {
+export function NetworkGraphComponent({ data, width, height }) {
     const svgRef = React.useRef();
 
     React.useEffect(() => {
@@ -15,8 +15,8 @@ export function NetworkGraphComponent({ data }) {
         nodeGroup: d => d.group,
         nodeTitle: d => `${d.id}\n${d.group}`,
         linkStrokeWidth: l => Math.sqrt(l.value),
-        width: 600,
-        height: 600,
+        width: width,
+        height: height,
         invalidation: null, // a promise to stop the simulation when the cell is re-run
     })
 
