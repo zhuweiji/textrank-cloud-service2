@@ -31,8 +31,10 @@ class JobInProgress {
 }
 
 const MLServices = {
+    ImageRank: 'ImageRank',
     TextRank: 'TextRank',
-    ImageModel: 'ImageModel',
+    ImageTranscribe: 'ImageTransribe',
+
 }
 
 
@@ -61,7 +63,9 @@ const heartbeatInterval = 10000;
 export function Homepage(props) {
     const acceptedImageFileTypes = ["JPG", "PNG"];
 
-    const [imageModelUploadedFiles, setImageModelUploadedFiles] = React.useState([]);
+    const [imageTranscribeUploadedFiles, setImageTranscribeUploadedFiles] = React.useState([]);
+    const [imageRankUploadedFiles, setImageRankUploadedFiles] = React.useState([]);
+
 
     const [jobsCreated, setJobsCreated] = React.useState([]);
     const [selectedJob, setSelectedJob] = React.useState(null); //the currently selected job in the 'jobs created' tab
@@ -75,72 +79,102 @@ export function Homepage(props) {
 
     const textFieldRef = useRef('') // a ref for the textField to enter ML input
 
-    const handleUploadImage = (fileList) => {
-        console.log(fileList)
+    const handleUploadImageRankImage = (fileList) => {
         let files = Object.values(fileList);
-        setImageModelUploadedFiles((old) => [...old, ...files]);
+        setImageRankUploadedFiles((old) => [...old, ...files]);
+    }
+
+    const handleUploadImage = (fileList) => {
+        let files = Object.values(fileList);
+        setImageTranscribeUploadedFiles((old) => [...old, ...files]);
     };
+
+    const handleSubmitImageRankJob = async () => {
+        let files = imageRankUploadedFiles;
+        JobHandler.createNewImageRankJob(files, MLServices.ImageRank);
+        setImageRankUploadedFiles([]);
+    }
 
     const handleSubmitTextRankJob = async () => {
         let value = textFieldRef.current.value;
-        createNewJob(value, MLServices.TextRank);
+        JobHandler.createNewTextRankJob(value);
     }
 
-    const handleSubmitImageModelJob = async () => {
-        let files = imageModelUploadedFiles;
-        createNewJob(files, MLServices.ImageModel);
-        setImageModelUploadedFiles([]);
+    const handleSubmitImageTranscribeJob = async () => {
+        let files = imageTranscribeUploadedFiles;
+        JobHandler.createNewImageTranscribeJob(files);
+        setImageTranscribeUploadedFiles([]);
     }
 
-    const createNewJob = async (data, service) => {
-        let resultPromise;
-        if (service === MLServices.TextRank) {
-            resultPromise = HttpService.text_rank_service(data)
-        }
-        else if (service === MLServices.ImageModel) {
-            resultPromise = HttpService.image_transcribe_service(data)
-        }
+    class JobHandler {
+        static numJobsCreated = 0;
 
-        let response = await resultPromise;
-        let task_ids;
+        static async createNewImageRankJob(data) {
+            const service = MLServices.ImageRank
 
-        if (response['task_id']) {
-            task_ids = [response.task_id]
-        } else if (response['task_id_list']) {
-            task_ids = response.task_id_list
-        } else {
-            console.error(`unknown response for job start: ${response}}`)
-            throw Error;
-        }
-        console.log(task_ids)
-        let jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
-        console.log(jobs)
+            let displayedJob = new JobInProgress(`${this.numJobsCreated}`, service, false)
+            this.putJobOnDisplayedQueue(displayedJob)
 
+            let response = await HttpService.image_transcribe_service(data);
+            let task_ids = response.task_id_list
 
-        if (jobsCreated.length === 0) {
-            setSelectedJob(jobs[0]);
+            let hidden_jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
+            let job_results = hidden_jobs.map(job => HttpService.get_job_result__long_poll(job.task_id, job))
+
+            let values = await Promise.all(job_results)
+
+            // convert the array of objects to a string 
+            values = values.map(i => Object.values(i)[0]).join('|')
+
+            this.handleJobCompletion({ 'data': values }, displayedJob)
         }
 
-        setJobsCreated((i) => [...i, ...jobs])
-        for (let job of jobs) {
-            HttpService.get_job_result__long_poll(job.task_id, job).then((job_result) => {
-                handleJobCompletion(job_result, job.task_id, job)
-                console.log(job_result)
+        static async createNewTextRankJob(data) {
+            const service = MLServices.TextRank
+
+            let response = await HttpService.text_rank_service(data);
+            let task_id = response.task_id
+            let job = new JobInProgress(task_id, service, false)
+            this.putJobOnDisplayedQueue(job)
+            this.updateJobUIOnBackendCompletion(job)
+        }
+
+        static async createNewImageTranscribeJob(data) {
+            const service = MLServices.ImageTranscribe
+
+            let response = await HttpService.image_transcribe_service(data);
+            let task_ids = response.task_id_list
+            let jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
+            jobs.map(job => {
+                this.putJobOnDisplayedQueue(job)
+                this.updateJobUIOnBackendCompletion(job)
             })
         }
+
+        static updateJobUIOnBackendCompletion(job) {
+            HttpService.get_job_result__long_poll(job.task_id, job).then((job_result) => {
+                this.handleJobCompletion(job_result, job)
+            })
+        }
+
+        static putJobOnDisplayedQueue(job) {
+            console.log(job)
+            setJobsCreated((i) => [...i, job])
+            if (jobsCreated.length === 0) {
+                setSelectedJob(job);
+            }
+        }
+
+        static handleJobCompletion = async (result, job) => {
+            job.setComplete();
+            setCompletedJobs(new Map(completedJobs.set(job.task_id, result)))
+        }
+
+        static displaySelectedJobResult = async () => {
+            setIdOfDisplayedJobResult(selectedJob.task_id);
+            setJobViewerTab(0);
+        }
     }
-
-    const handleJobCompletion = async (result, task_id, job) => {
-        job.setComplete();
-        setCompletedJobs(new Map(completedJobs.set(task_id, result)))
-    }
-
-    const displaySelectedJobResult = async () => {
-        setIdOfDisplayedJobResult(selectedJob.task_id);
-        setJobViewerTab(0);
-    }
-
-
 
     const backendConnectionDisplay = () => {
         let iconColor;
@@ -188,14 +222,43 @@ export function Homepage(props) {
         return <Box sx={{ height: '20rem' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs value={modelSelectionTab} onChange={handleTabChange} aria-label="basic tabs example">
-                    <Tab label="Model One" {...a11yProps(0)} />
-                    <Tab label="Model Two" {...a11yProps(1)} />
-                    <Tab label="Model Three" {...a11yProps(2)} />
+                    <Tab label="ImageRank" {...a11yProps(0)} />
+                    <Tab label="TextRank" {...a11yProps(1)} />
+                    <Tab label="Image Transcription" {...a11yProps(2)} />
                 </Tabs>
             </Box>
 
-
             <TabPanel value={modelSelectionTab} index={0}>
+                <Typography pb={3} variant='h6'>ImageRank</Typography>
+                <Typography >
+                    Surface the most important images
+                </Typography>
+
+                <Typography pt={5} fontWeight='bold'>
+                    Images Uploaded:
+                </Typography>
+
+                <Box sx={{ maxHeight: '10rem', overflowY: 'scroll', mb: 5 }}>
+                    <List>
+                        {imageRankUploadedFiles.map((i) => {
+                            return <ListItem disablePadding key={i.name}>
+                                <ListItemText primary={i.name} />
+                            </ListItem >
+
+                        })}
+
+                    </List>
+
+                </Box>
+
+                <FileUploader name="file" handleChange={handleUploadImageRankImage} types={acceptedImageFileTypes} multiple />
+
+                <Stack direction="row" justifyContent="flex-end" spacing={2}>
+                    <Button variant='outlined' onClick={handleSubmitImageRankJob}>Submit</Button>
+                </Stack>
+            </TabPanel>
+
+            <TabPanel value={modelSelectionTab} index={1}>
                 <Typography pb={3} variant='h6'>TextRank Keyword Analysis</Typography>
                 <Typography>
                     Cupidatat ad magna labore cillum non nulla anim do culpa velit ad qui incididunt.
@@ -216,7 +279,7 @@ export function Homepage(props) {
             </TabPanel>
 
 
-            <TabPanel value={modelSelectionTab} index={1}>
+            <TabPanel value={modelSelectionTab} index={2}>
                 <Typography pb={3} variant='h6'>Some Image Model</Typography>
                 <Typography >
                     Cupidatat ad magna labore cillum non nulla anim do culpa velit ad qui incididunt.
@@ -229,7 +292,7 @@ export function Homepage(props) {
 
                 <Box sx={{ maxHeight: '10rem', overflowY: 'scroll', mb: 5 }}>
                     <List>
-                        {imageModelUploadedFiles.map((i) => {
+                        {imageTranscribeUploadedFiles.map((i) => {
                             return <ListItem disablePadding key={i.name}>
                                 <ListItemText primary={i.name} />
                             </ListItem >
@@ -243,16 +306,8 @@ export function Homepage(props) {
                 <FileUploader name="file" handleChange={handleUploadImage} types={acceptedImageFileTypes} multiple />
 
                 <Stack direction="row" justifyContent="flex-end" spacing={2}>
-                    <Button variant='outlined' onClick={handleSubmitImageModelJob}>Submit</Button>
+                    <Button variant='outlined' onClick={handleSubmitImageTranscribeJob}>Submit</Button>
                 </Stack>
-
-
-
-            </TabPanel>
-
-
-            <TabPanel value={modelSelectionTab} index={2}>
-                Description Three
             </TabPanel>
         </Box>
     })
@@ -318,7 +373,7 @@ export function Homepage(props) {
                     <Typography textAlign='center'>completed: {selectedJob.completed.toString()}</Typography>
 
                     <Stack direction="row" justifyContent="flex-end" spacing={2} mt={5}>
-                        <Button variant="outlined" onClick={displaySelectedJobResult}>View Job Result</Button>
+                        <Button variant="outlined" onClick={JobHandler.displaySelectedJobResult}>View Job Result</Button>
                     </Stack>
                 </Box>
             }

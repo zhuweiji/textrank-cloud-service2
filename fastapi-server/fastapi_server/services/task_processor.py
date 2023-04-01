@@ -82,12 +82,13 @@ class JobProcessor:
                 )
             cls.completed_jobs[task_id] = job
         elif task_type == TaskType.IMAGE_TRANSCRIPTION.value:
-            log.info(message)
-            log.info(message.body.decode())
+            # the output of the model is multiple results delimited by comma (although a result may contain a comma as well)
+            # we don't want all the results, just maybe the top two
+            data = ','.join(message.body.decode().split(',')[:2])
             
             job = JobSpecification(
                 task_type=TaskType.IMAGE_TRANSCRIPTION,
-                data=message.body.decode(),
+                data=data,
                 task_id=str(task_id)
                 )
             cls.completed_jobs[task_id] = job
