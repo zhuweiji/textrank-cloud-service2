@@ -7,7 +7,7 @@ from aio_pika.abc import AbstractIncomingMessage
 from cloud_worker.constants import RABBITMQ_JOB_QUEUE_NAME, RABBITMQ_RESULT_QUEUE_NAME
 from cloud_worker.imagerank_module.image_transcribe import ImageInterrogator
 from cloud_worker.services.connection_handlers import RabbitMQHandler
-from cloud_worker.textrank_module.textrank import TextRank, TextRankKeywordResult
+from cloud_worker.textrank_module.textrank import TextRank
 
 log = logging.getLogger(__name__)
 from PIL import Image
@@ -34,7 +34,6 @@ class TaskProcesor:
             data = message.body.decode()
             
             result =  cls.handle_text_keyword_extraction(data)
-            result = [i.asdict() for i in result]
             encoded_data = pickle.dumps(result)
             
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, encoded_data, 
@@ -42,9 +41,7 @@ class TaskProcesor:
                                            'task_id':task_id,
                                            'pickled': True})
             
-            
         elif task_type == TaskType.IMAGE_TRANSCRIPTION.value:
-            
             image_data = message.body
             codec = other_info['codec']
             image_obj = io.BytesIO(image_data)
@@ -56,10 +53,10 @@ class TaskProcesor:
             
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, result, {'task_type': TaskType.IMAGE_TRANSCRIPTION.value, 'task_id':task_id})
             
-            
-            
         else:
             log.warning(f'Could not interpret task: {headers}')
+            
+        log.info(f'completed {task_type} task')
             
     @classmethod
     async def listen_for_incoming_tasks(cls):

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 import random
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from itertools import count
+from operator import itemgetter
 from threading import current_thread
 from typing import List
 
 log = logging.getLogger(__name__)
+
 
 @dataclass
 class Undirected_Node:
@@ -24,6 +26,18 @@ class Undirected_Node:
     
     def full_str(self):
         return f"Undirected Node {self.name}: {self.connected}"
+    
+    def asdict(self):
+        # this takes a long ass time
+        class_attributes = [attr for attr in dir(self) 
+                            if '__' not in attr and not callable(getattr(self, attr))
+                            and attr != 'connected']
+        
+        # class_attributes = ['id','name']
+        
+        self_asdict = {attr: getattr(self, attr) for attr in class_attributes}
+        self_asdict['connected'] = [i.id for i in self.connected]
+        return self_asdict
 
 @dataclass
 class Directed_Node:

@@ -4,7 +4,7 @@ import React, { useRef, Component } from 'react'
 
 import {
     Button, Typography, TextField, Box, Stack, Tabs, Tab, Paper, Pagination, Container,
-    List, ListItem, ListItemText, Tooltip, IconButton
+    List, ListItem, ListItemText, Tooltip, IconButton, Divider
 } from '@mui/material';
 
 import CloudIcon from '@mui/icons-material/Cloud';
@@ -33,34 +33,47 @@ class JobInProgress {
     }
 }
 
+
 const MLServices = {
     ImageRank: 'ImageRank',
     TextRank: 'TextRank',
-    ImageTranscribe: 'ImageTransribe',
+    ImageTranscribe: 'ImageTranscribe',
 
 }
+
+class JobDisplayedData {
+    constructor(task_id, text, image, graph) {
+        this.task_id = task_id
+        this.text = text
+        this.image = image
+        this.graph = graph
+    }
+}
+
 
 const heartbeatInterval = 10000;
 
 export function Homepage(props) {
     const acceptedImageFileTypes = ["JPG", "PNG"];
 
-    const [imageTranscribeUploadedFiles, setImageTranscribeUploadedFiles] = React.useState([]);
-    const [imageRankUploadedFiles, setImageRankUploadedFiles] = React.useState([]);
 
-
-    const [jobsCreated, setJobsCreated] = React.useState([]);
-    const [selectedJob, setSelectedJob] = React.useState(null); //the currently selected job in the 'jobs created' tab
-    const [connectionAlive, setConnectionAlive] = React.useState(null);
-
-    const [completedJobs, setCompletedJobs] = React.useState(new Map());
-    const [idOfDisplayedJobResult, setIdOfDisplayedJobResult] = React.useState(null);
+    const [imageTranscribeUploadedFiles, setImageTranscribeUploadedFiles] = React.useState([]);  // temporarily store files that were uploaded but were not submitted for a job yet
+    const [imageRankUploadedFiles, setImageRankUploadedFiles] = React.useState([]);              // temporarily store files that were uploaded but were not submitted for a job yet
 
     const [modelSelectionTab, setModelSelectionTab] = React.useState(0); // the tab number of the current machine learning model selected (lhs display)
     const [jobViewerTab, setJobViewerTab] = React.useState(0);           // the tab number of the right hand side display
 
-    const [displayedGraphData, setDisplayedGraphData] = React.useState({}) // the data used to render as network graph
-    const [jobMiscData, setJobMiscData] = React.useState({});
+
+    const [completedJobToResultMap, setCompletedJobToResultMap] = React.useState(new Map()); // map of completeted job taskid to the rendered output
+    const [idOfDisplayedJobResult, setIdOfDisplayedJobResult] = React.useState(null);
+    const [jobsCreated, setJobsCreated] = React.useState([]);
+    const [selectedJob, setSelectedJob] = React.useState(null); //the currently selected job in the 'jobs created' tab
+    const [connectionAlive, setConnectionAlive] = React.useState(null);
+
+    const [displayedGraphData, setDisplayedGraphData] = React.useState({})  // the data used to render the displayed network graph
+    const [displayedImageURL, setDisplayedImageURL] = React.useState(null);
+    const [displayedTextResult, setDisplayedTextResult] = React.useState('');
+    // const [jobMiscData, setJobMiscData] = React.useState({});
 
     const textFieldRef = useRef('') // a ref for the textField (textfield to enter ML input)
 
@@ -79,17 +92,25 @@ export function Homepage(props) {
         let files = imageRankUploadedFiles;
         JobHandler.createNewImageRankJob(files, MLServices.ImageRank);
         setImageRankUploadedFiles([]);
+
+        setJobViewerTab(1);
     }
 
     const handleSubmitTextRankJob = async () => {
         let value = textFieldRef.current.value;
         JobHandler.createNewTextRankJob(value);
+
+        setJobViewerTab(1);
+
     }
 
     const handleSubmitImageTranscribeJob = async () => {
         let files = imageTranscribeUploadedFiles;
         JobHandler.createNewImageTranscribeJob(files);
         setImageTranscribeUploadedFiles([]);
+
+        setJobViewerTab(1);
+
     }
 
     //  this probably shouldnt be in a usestate but i had issues updating the variable whether it was static or global
@@ -111,21 +132,17 @@ export function Homepage(props) {
 
             // create hidden jobs that are not visible to the user
             let hidden_jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
-            let job_results = hidden_jobs.map(job => HttpService.get_job_result__long_poll(job.task_id, job))
+            let job_results = hidden_jobs.map(job => this.getJobResult(job))
 
             let values = await Promise.all(job_results)
-
-            // convert the array of objects to a string 
-            values = values.map(i => Object.values(i)[0]).join('|')
-
-            this.completeJob({ 'data': values }, displayedJob)
+            displayedJob.setComplete()
+            values = values.map(i => i.result).join(' | ')
 
 
-            let t = await createGraphStructureFromImageData(data);
-            setJobMiscData((old) => {
-                old[displayedJob.task_id] = { 'graphData': t }
-                return old;
-            })
+            let graph = await createGraphStructureFromImageData(data);
+
+            console.log(graph)
+            this.setResultsOfCompletedJob(displayedJobTaskId, values, null, graph)
         }
 
         static async createNewTextRankJob(data) {
@@ -135,7 +152,14 @@ export function Homepage(props) {
             let task_id = response.task_id
             let job = new JobInProgress(task_id, service, false)
             this.putJobOnDisplayedQueue(job)
-            this.updateJobUIOnBackendCompletion(job)
+            let result = await this.getJobResult(job)
+
+            let resultData = result.result
+            let graphData = createGraphStructureFromTextRankData(resultData);
+
+            let filteredResultData = resultData.filter(i => i.score > 1).map(i => i.name)
+            let displayedOutputText = filteredResultData.join(', ')
+            this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
         }
 
         static async createNewImageTranscribeJob(data) {
@@ -144,16 +168,26 @@ export function Homepage(props) {
             let response = await HttpService.image_transcribe_service(data);
             let task_ids = response.task_id_list
             let jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
-            jobs.map(job => {
+
+
+            jobs.forEach((job, index) => {
                 this.putJobOnDisplayedQueue(job)
-                this.updateJobUIOnBackendCompletion(job)
+
+                let photoUrl = URL.createObjectURL(data[index]);
+
+                // i have a feeling this is unintentionally blocking
+                // the foreach loop shouldn't be blocked by waiting for a getJobResult
+                let resultPromise = this.getJobResult(job)
+                resultPromise.then((job_result) => {
+                    this.setResultsOfCompletedJob(job_result['task_id'], job_result['result'], photoUrl, null)
+                })
             })
         }
 
-        static updateJobUIOnBackendCompletion(job) {
-            HttpService.get_job_result__long_poll(job.task_id, job).then((job_result) => {
-                this.completeJob(job_result, job)
-            })
+        static async getJobResult(job) {
+            let result = await HttpService.get_job_result__long_poll(job.task_id, job);
+            job.setComplete();
+            return result;
         }
 
         static putJobOnDisplayedQueue(job) {
@@ -162,14 +196,14 @@ export function Homepage(props) {
                 setSelectedJob(job);
             }
         }
-
-        static completeJob = async (result, job) => {
-            job.setComplete();
-            setCompletedJobs(new Map(completedJobs.set(job.task_id, result)))
-
-            //TODO - should do some conditionally parsing of results from backend
-            // textrank will return graph and node score 
-            // 
+        static setResultsOfCompletedJob = (task_id, text, imageURL, graph) => {
+            if (jobsCreated.filter((job) => job.task_id === task_id)) {
+                let displayData = new JobDisplayedData(task_id, text, imageURL, graph);
+                console.log(displayData)
+                setCompletedJobToResultMap(new Map(completedJobToResultMap.set(task_id, displayData)))
+            } else {
+                console.warn(`tried to set the results of task_id ${task_id}} but that job was never created`)
+            }
         }
 
         static displaySelectedJobResult = async () => {
@@ -177,11 +211,19 @@ export function Homepage(props) {
             setIdOfDisplayedJobResult(selectedJob.task_id);
             setJobViewerTab(0);
 
-            // if there is data misc data to be rendered as graph, then set the graph data 
-            console.log(jobMiscData)
-            if (jobMiscData?.[task_id]?.graphData) {
-                let graphData = jobMiscData[task_id]['graphData']
-                setDisplayedGraphData(graphData);
+            let result = completedJobToResultMap.get(task_id)
+            if (!result) {
+                console.warn(`tried to display ${task_id}} but that job doesn't have a result`)
+                return
+            }
+            if (result.text) {
+                setDisplayedTextResult(result.text)
+            }
+            if (result.image) {
+                setDisplayedImageURL(result.image)
+            }
+            if (result.graph) {
+                setDisplayedGraphData(result.graph)
             }
         }
     }
@@ -269,10 +311,15 @@ export function Homepage(props) {
             </TabPanel>
 
             <TabPanel value={modelSelectionTab} index={1}>
-                <Typography pb={3} variant='h6'>TextRank Keyword Analysis</Typography>
+                <Typography pb={3} variant='h6'>TextRank Keyword Extraction</Typography>
                 <Typography>
-                    Cupidatat ad magna labore cillum non nulla anim do culpa velit ad qui incididunt.
-                    Sunt fugiat laborum eu enim minim deserunt ipsum non exercitation laboris proident elit.
+                    Extracts keywords from user-entered text of any length.
+                </Typography>
+                <Typography>
+                    This tool generates a list of relevant keywords and a network graph that visually represents the relationships between them.
+                </Typography>
+                <Typography pt={2}>
+                    This feature may be valuable for professionals in fields such as research and writing, as well as anyone looking to gain a deeper understanding of their text.
                 </Typography>
 
                 <Box mt={10}>
@@ -337,19 +384,40 @@ export function Homepage(props) {
             </Box>
 
             <TabPanel value={jobViewerTab} index={0}>
-                <NetworkGraph2 data={displayedGraphData} />
-                <Button variant='outlined' onClick={() => { setDisplayedGraphData({ 'nodes': [{ 'id': '2', 'label': '2' }] }) }}>Change</Button>
+                {
+                    displayedGraphData?.nodes?.length > 0 &&
+                    <Box pb={5}>
+                        <Typography variant='h6'>Graph</Typography>
+                        <Divider />
+                        <NetworkGraph2 data={displayedGraphData} />
+                    </Box>
+                }
 
                 {
-                    completedJobs && completedJobs.get(idOfDisplayedJobResult) &&
-                    Object.entries(completedJobs.get(idOfDisplayedJobResult)).map(([k, v]) => {
-                        return <Typography key={k}>{k}: {v}</Typography>
-                    })
+                    displayedImageURL &&
+                    <Box pb={5}>
+                        <Typography variant='h6'>Image</Typography>
+                        <Divider />
+
+                        <img src={displayedImageURL} width='75%' height='75%' />
+                    </Box>
+                }
+
+                {
+                    // completedJobToResultMap.get(idOfDisplayedJobResult)
+                    displayedTextResult &&
+                    <Box pb={5}>
+                        <Typography variant='h6'>Text</Typography>
+                        <Divider />
+
+                        <Typography whiteSpace='pre-wrap'>{displayedTextResult}</Typography>
+
+                    </Box>
 
                 }
 
                 {
-                    (!completedJobs || !completedJobs.get(idOfDisplayedJobResult)) &&
+                    (!completedJobToResultMap || !completedJobToResultMap.get(idOfDisplayedJobResult)) &&
                     <Stack direction="column" justifyContent="space-between" alignItems="center" spacing={2}>
                         <Typography>Data will be displayed here when you finish a job</Typography>
                     </Stack>
@@ -459,6 +527,38 @@ function refreshDraggedNodePosition(e) {
 }
 
 
+function createGraphStructureFromTextRankData(data) {
+    // function expects input in the following form:
+    //  [
+    // {id: str, name: str, score: str, connected: [ids]}
+    // ]
+    let resultObj = { 'nodes': [], 'edges': [] }
+
+    let edgeMap = new Map()
+    data.forEach((i) => {
+        let node = {
+            id: `${i.id}`,
+            label: `${i.name}`,
+            score: `${i.score}`,
+            size: `${i.score}`,
+        }
+        i?.connected.forEach(other_id => edgeMap.set(i.id, other_id))
+        resultObj['nodes'].push(node)
+    })
+    edgeMap.forEach((id1, id2) => {
+        let edge = {
+            id: `${id1}-${id2}`,
+            source: `${id1}`,
+            target: `${id2}`,
+        }
+        resultObj['edges'].push(edge)
+    })
+    console.log(resultObj)
+    return resultObj
+
+
+}
+
 async function createGraphStructureFromImageData(fileArray) {
     let resultObj = { 'nodes': [], 'edges': [] }
 
@@ -523,19 +623,6 @@ function NetworkGraph2({ data }) {
         graph.on('afterlayout', e => {
             graph.fitView()
         })
-        // graph.on('node:dragstart', function (e) {
-        //     graph.layout();
-        //     refreshDraggedNodePosition(e);
-        // });
-        // graph.on('node:drag', function (e) {
-        //     const forceLayout = graph.get('layoutController').layoutMethods[0];
-        //     forceLayout.execute();
-        //     refreshDraggedNodePosition(e);
-        // });
-        // graph.on('node:dragend', function (e) {
-        //     e.item.get('model').fx = null;
-        //     e.item.get('model').fy = null;
-        // });
     }, []);
 
     return <div ref={ref}></div>;
