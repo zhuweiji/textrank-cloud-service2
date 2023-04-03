@@ -189,12 +189,15 @@ export function Homepage(props) {
                 obj['name'] = obj.name.slice(0, 10)
                 resultModified.push(obj)
             }
-            console.log(resultModified)
+
+            if (resultModified.length > 300) {
+                resultModified = resultModified.slice(0, 300)
+            }
             let graphData = createGraphStructureFromTextRankData(resultModified);
 
 
-            let filteredResultData = resultData.filter(i => i.score > 1).map(i => i.name)
-            let displayedOutputText = filteredResultData.join(', ')
+            let filteredResultData = resultData.filter(i => i.score > 1).map(i => i.tooltip)
+            let displayedOutputText = filteredResultData.join('\n')
             this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
         }
 
@@ -595,12 +598,15 @@ function createGraphStructureFromTextRankData(data) {
     let resultObj = { 'nodes': [], 'edges': [] }
 
     let edgeMap = new Map()
+    let meanScore = data.reduce((sum, i) => sum + parseFloat(i.score), 0) / data.length;
+    console.log(meanScore)
     data.forEach((i) => {
+
         let node = {
             id: `${i.id}`,
             label: `${i.name.slice(0, 30)}`,
             score: `${i.score}`,
-            size: `${i.score}`,
+            size: `${((i.score / meanScore) + 2) * 5}`,
             tooltip: `${i.tooltip}`
         }
         i?.connected.forEach(other_id => edgeMap.set(i.id, other_id))
@@ -688,7 +694,7 @@ function NetworkGraph2({ data }) {
                     type: 'force',
                     preventOverlap: true,
                     linkDistance: 10
-
+                    // type: 'radial'
                 },
                 plugins: [tooltip], // Use Tooltip plugin
 
