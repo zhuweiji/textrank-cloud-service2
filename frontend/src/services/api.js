@@ -22,6 +22,27 @@ export class HttpService {
         return result;
     }
 
+    static async sentence_extraction_service(text) {
+        let url = `${BACKEND_URL}/sentence_extraction`
+        let data = {
+            text: text
+        }
+
+        let response = await fetch(url,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', },
+                body: JSON.stringify(data)
+            });
+
+        if (response.status !== 200) {
+            console.warn(response)
+        }
+
+        let result = await response.json();
+        return result;
+    }
+
     static async image_transcribe_service(files) {
         let url = `${BACKEND_URL}/image_transcribe`
 

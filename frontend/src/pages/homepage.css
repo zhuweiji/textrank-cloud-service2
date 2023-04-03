@@ -1,0 +1,9 @@
+.g6-tooltip {
+  padding: 10px 6px;
+  color: #444;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e2e2e2;
+  border-radius: 4px;
+  font-size: smaller;
+  max-width: 10%;
+}
