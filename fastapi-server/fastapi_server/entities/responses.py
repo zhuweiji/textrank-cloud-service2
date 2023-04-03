@@ -10,6 +10,12 @@ def job_created_response__multiple(task_ids:List[str]):
 def job_created_response(task_id:str):
     return {'task_id': task_id}
 
+def job_completed_response(task_id:str, result):
+    return {
+        'task_id': task_id,
+        'result': result
+    }
+
 def text_response(text:str):
     return {'message': text}
 

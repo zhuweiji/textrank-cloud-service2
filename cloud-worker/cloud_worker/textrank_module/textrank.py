@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import List
 
 from .nlp import remove_stopwords as _remove_stopwords
@@ -12,12 +12,9 @@ TextRank.keyword_extraction__undirected() - return a list of keywords from a str
 log = logging.getLogger(__name__)
 
 @dataclass
-class TextRankKeywordResult:
-    text: str
-    score: int
-    
-    def __repr__(self) -> str:
-        return f'text: {self.text} | score: {self.score}'
+class Keyword_Extraction_Result:
+    nodes: List[Undirected_Node]
+
 
 class TextRank:
     @classmethod
@@ -25,10 +22,18 @@ class TextRank:
         if remove_stopwords: string = _remove_stopwords(string)
         nodes = cls._generate_nodes_from_cooccurence(string)
         result = PageRank.calculate__undirected_no_optimse(nodes, iterations=iterations)
+        
         sorted_result = sorted(result.items(), key=lambda x:x[1], reverse=True)
+        result_nodes = []
         
-        
-        return [TextRankKeywordResult(text=i[0].name, score=i[1]) for i in sorted_result if i[1] > min_score]
+        for node,score in sorted_result:
+            # convert node to dict for serialization
+            node_dict = node.asdict()
+            node_dict['score'] = score
+            result_nodes.append(node_dict)
+        return result_nodes
+            
+        #TODO - want to filter stopwards - probably use spacy for this
     
     # @classmethod
     # def collapse_keywords(cls, keywords:List[str], text:str):
@@ -42,7 +47,7 @@ class TextRank:
                     
     
     @classmethod
-    def _generate_nodes_from_cooccurence(cls, string: str):
+    def _generate_nodes_from_cooccurence(cls, string: str) -> List[Undirected_Node]:
         tokens = cls._tokenize(string)
         # node_dict = keydefaultdict(default_factory=lambda token_orth: Undirected_Node(name=token_orth))
         node_dict = {}

@@ -19,6 +19,7 @@ from fastapi import (
 from fastapi_server.entities.POST_bodies import Text_Transcribe_Request
 from fastapi_server.entities.responses import (
     endpoint_not_implemented_response,
+    job_completed_response,
     job_created_response,
     job_created_response__multiple,
     text_response,
@@ -87,7 +88,7 @@ async def get_job_result_route(task_id: str):
     while True:
         job = JobProcessor.check_job_status(task_id)
         if job:
-            return text_response(job.data)
+            return job_completed_response(task_id=job.task_id, result=job.data)
         else:
             await asyncio.sleep(1)
             

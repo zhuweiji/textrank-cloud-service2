@@ -4,7 +4,7 @@ import React, { useRef, Component } from 'react'
 
 import {
     Button, Typography, TextField, Box, Stack, Tabs, Tab, Paper, Pagination, Container,
-    List, ListItem, ListItemText, Tooltip, IconButton
+    List, ListItem, ListItemText, Tooltip, IconButton, Divider
 } from '@mui/material';
 
 import CloudIcon from '@mui/icons-material/Cloud';
@@ -17,7 +17,10 @@ import { styled } from '@mui/material/styles';
 import { FileUploader } from "react-drag-drop-files";
 
 import { HttpService } from '../services/api.js'
-import { NetworkGraphComponent } from '../components/NetworkGraph.js'
+
+import ReactDOM from 'react-dom';
+import G6 from '@antv/g6';
+
 
 class JobInProgress {
     constructor(task_id, task_type, completed) {
@@ -30,122 +33,200 @@ class JobInProgress {
     }
 }
 
+
 const MLServices = {
+    ImageRank: 'ImageRank',
     TextRank: 'TextRank',
-    ImageModel: 'ImageModel',
+    ImageTranscribe: 'ImageTranscribe',
+
 }
 
-
-let data = {
-    nodes: [
-        { id: 'Myriel', group: 1 },
-        { id: 'Napoleon', group: 1 },
-        { id: 'ASD', group: 1 },
-        { id: 'DAS', group: 1 },
-        { id: 'BB', group: 1 },
-
-    ],
-    links: [
-        { source: 'Myriel', target: 'Napoleon', value: 1 },
-        { source: 'Napoleon', target: 'DAS', value: 1 },
-        { source: 'Napoleon', target: 'Napoleon', value: 1 },
-        { source: 'ASD', target: 'DAS', value: 1 },
-        { source: 'BB', target: 'DAS', value: 1 },
-        { source: 'ASD', target: 'BB', value: 1 },
-
-    ]
+class JobDisplayedData {
+    constructor(task_id, text, image, graph) {
+        this.task_id = task_id
+        this.text = text
+        this.image = image
+        this.graph = graph
+    }
 }
+
 
 const heartbeatInterval = 10000;
 
 export function Homepage(props) {
     const acceptedImageFileTypes = ["JPG", "PNG"];
 
-    const [imageModelUploadedFiles, setImageModelUploadedFiles] = React.useState([]);
 
+    const [imageTranscribeUploadedFiles, setImageTranscribeUploadedFiles] = React.useState([]);  // temporarily store files that were uploaded but were not submitted for a job yet
+    const [imageRankUploadedFiles, setImageRankUploadedFiles] = React.useState([]);              // temporarily store files that were uploaded but were not submitted for a job yet
+
+    const [modelSelectionTab, setModelSelectionTab] = React.useState(0); // the tab number of the current machine learning model selected (lhs display)
+    const [jobViewerTab, setJobViewerTab] = React.useState(0);           // the tab number of the right hand side display
+
+
+    const [completedJobToResultMap, setCompletedJobToResultMap] = React.useState(new Map()); // map of completeted job taskid to the rendered output
+    const [idOfDisplayedJobResult, setIdOfDisplayedJobResult] = React.useState(null);
     const [jobsCreated, setJobsCreated] = React.useState([]);
     const [selectedJob, setSelectedJob] = React.useState(null); //the currently selected job in the 'jobs created' tab
     const [connectionAlive, setConnectionAlive] = React.useState(null);
 
-    const [completedJobs, setCompletedJobs] = React.useState(new Map());
-    const [idOfDisplayedJobResult, setIdOfDisplayedJobResult] = React.useState(null);
+    const [displayedGraphData, setDisplayedGraphData] = React.useState({})  // the data used to render the displayed network graph
+    const [displayedImageURL, setDisplayedImageURL] = React.useState(null);
+    const [displayedTextResult, setDisplayedTextResult] = React.useState('');
+    // const [jobMiscData, setJobMiscData] = React.useState({});
 
-    const [modelSelectionTab, setModelSelectionTab] = React.useState(0);
-    const [jobViewerTab, setJobViewerTab] = React.useState(0);
+    const textFieldRef = useRef('') // a ref for the textField (textfield to enter ML input)
 
-    const textFieldRef = useRef('') // a ref for the textField to enter ML input
+    const handleUploadImageRankImage = (fileList) => {
+        let files = Object.values(fileList);
+        setImageRankUploadedFiles((old) => [...old, ...files]);
+    }
 
     const handleUploadImage = (fileList) => {
-        console.log(fileList)
         let files = Object.values(fileList);
-        setImageModelUploadedFiles((old) => [...old, ...files]);
+        setImageTranscribeUploadedFiles((old) => [...old, ...files]);
     };
+
+
+    const handleSubmitImageRankJob = async () => {
+        let files = imageRankUploadedFiles;
+        JobHandler.createNewImageRankJob(files, MLServices.ImageRank);
+        setImageRankUploadedFiles([]);
+
+        setJobViewerTab(1);
+    }
 
     const handleSubmitTextRankJob = async () => {
         let value = textFieldRef.current.value;
-        createNewJob(value, MLServices.TextRank);
+        JobHandler.createNewTextRankJob(value);
+
+        setJobViewerTab(1);
+
     }
 
-    const handleSubmitImageModelJob = async () => {
-        let files = imageModelUploadedFiles;
-        createNewJob(files, MLServices.ImageModel);
-        setImageModelUploadedFiles([]);
+    const handleSubmitImageTranscribeJob = async () => {
+        let files = imageTranscribeUploadedFiles;
+        JobHandler.createNewImageTranscribeJob(files);
+        setImageTranscribeUploadedFiles([]);
+
+        setJobViewerTab(1);
+
     }
 
-    const createNewJob = async (data, service) => {
-        let resultPromise;
-        if (service === MLServices.TextRank) {
-            resultPromise = HttpService.text_rank_service(data)
+    //  this probably shouldnt be in a usestate but i had issues updating the variable whether it was static or global
+    const [numJobsCreated, setNumJobsCreated] = React.useState(0);
+    class JobHandler {
+
+        static async createNewImageRankJob(data) {
+            const service = MLServices.ImageRank
+
+            // create a new job that the user can interact with that is only marked as completed when the underlying jobs to transcribe all the images are complete
+            const displayedJobTaskId = `ImageRank ${numJobsCreated}`
+            let displayedJob = new JobInProgress(displayedJobTaskId, service, false)
+            setNumJobsCreated((i) => i + 1)
+
+            this.putJobOnDisplayedQueue(displayedJob)
+
+            let response = await HttpService.image_transcribe_service(data);
+            let task_ids = response.task_id_list
+
+            // create hidden jobs that are not visible to the user
+            let hidden_jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
+            let job_results = hidden_jobs.map(job => this.getJobResult(job))
+
+            let values = await Promise.all(job_results)
+            displayedJob.setComplete()
+            values = values.map(i => i.result).join(' | ')
+
+
+            let graph = await createGraphStructureFromImageData(data);
+
+            console.log(graph)
+            this.setResultsOfCompletedJob(displayedJobTaskId, values, null, graph)
         }
-        else if (service === MLServices.ImageModel) {
-            resultPromise = HttpService.image_transcribe_service(data)
+
+        static async createNewTextRankJob(data) {
+            const service = MLServices.TextRank
+
+            let response = await HttpService.text_rank_service(data);
+            let task_id = response.task_id
+            let job = new JobInProgress(task_id, service, false)
+            this.putJobOnDisplayedQueue(job)
+            let result = await this.getJobResult(job)
+
+            let resultData = result.result
+            let graphData = createGraphStructureFromTextRankData(resultData);
+
+            let filteredResultData = resultData.filter(i => i.score > 1).map(i => i.name)
+            let displayedOutputText = filteredResultData.join(', ')
+            this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
         }
 
-        let response = await resultPromise;
-        let task_ids;
+        static async createNewImageTranscribeJob(data) {
+            const service = MLServices.ImageTranscribe
 
-        if (response['task_id']) {
-            task_ids = [response.task_id]
-        } else if (response['task_id_list']) {
-            task_ids = [response.task_id_list]
-        } else {
-            console.error(`unknown response for job start: ${response}}`)
-            throw Error;
-        }
-        console.log(task_ids)
-        let jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
-        console.log(jobs)
+            let response = await HttpService.image_transcribe_service(data);
+            let task_ids = response.task_id_list
+            let jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
 
 
-        if (jobsCreated.length === 0) {
-            setSelectedJob(jobs[0]);
-        }
+            jobs.forEach((job, index) => {
+                this.putJobOnDisplayedQueue(job)
 
-        setJobsCreated((i) => [...i, ...jobs])
+                let photoUrl = URL.createObjectURL(data[index]);
 
-        for (let job of jobs) {
-            HttpService.get_job_result__long_poll(job.task_id, job).then((job_result) => {
-                handleJobCompletion(job_result, job.task_id, job)
-                console.log(job_result)
+                // i have a feeling this is unintentionally blocking
+                // the foreach loop shouldn't be blocked by waiting for a getJobResult
+                let resultPromise = this.getJobResult(job)
+                resultPromise.then((job_result) => {
+                    this.setResultsOfCompletedJob(job_result['task_id'], job_result['result'], photoUrl, null)
+                })
             })
         }
+
+        static async getJobResult(job) {
+            let result = await HttpService.get_job_result__long_poll(job.task_id, job);
+            job.setComplete();
+            return result;
+        }
+
+        static putJobOnDisplayedQueue(job) {
+            setJobsCreated((i) => [...i, job])
+            if (jobsCreated.length === 0) {
+                setSelectedJob(job);
+            }
+        }
+        static setResultsOfCompletedJob = (task_id, text, imageURL, graph) => {
+            if (jobsCreated.filter((job) => job.task_id === task_id)) {
+                let displayData = new JobDisplayedData(task_id, text, imageURL, graph);
+                console.log(displayData)
+                setCompletedJobToResultMap(new Map(completedJobToResultMap.set(task_id, displayData)))
+            } else {
+                console.warn(`tried to set the results of task_id ${task_id}} but that job was never created`)
+            }
+        }
+
+        static displaySelectedJobResult = async () => {
+            const task_id = selectedJob.task_id
+            setIdOfDisplayedJobResult(selectedJob.task_id);
+            setJobViewerTab(0);
+
+            let result = completedJobToResultMap.get(task_id)
+            if (!result) {
+                console.warn(`tried to display ${task_id}} but that job doesn't have a result`)
+                return
+            }
+            if (result.text) {
+                setDisplayedTextResult(result.text)
+            }
+            if (result.image) {
+                setDisplayedImageURL(result.image)
+            }
+            if (result.graph) {
+                setDisplayedGraphData(result.graph)
+            }
+        }
     }
-
-    const handleJobCompletion = async (result, task_id, job) => {
-        job.setComplete();
-        setCompletedJobs(new Map(completedJobs.set(task_id, result)))
-    }
-
-    const displaySelectedJobResult = async () => {
-        setIdOfDisplayedJobResult(selectedJob.task_id);
-        console.log(completedJobs);
-        console.log(selectedJob.task_id)
-        console.log(
-            completedJobs.get(selectedJob.task_id)
-        )
-    }
-
-
 
     const backendConnectionDisplay = () => {
         let iconColor;
@@ -193,18 +274,52 @@ export function Homepage(props) {
         return <Box sx={{ height: '20rem' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs value={modelSelectionTab} onChange={handleTabChange} aria-label="basic tabs example">
-                    <Tab label="Model One" {...a11yProps(0)} />
-                    <Tab label="Model Two" {...a11yProps(1)} />
-                    <Tab label="Model Three" {...a11yProps(2)} />
+                    <Tab label="ImageRank" {...a11yProps(0)} />
+                    <Tab label="TextRank" {...a11yProps(1)} />
+                    <Tab label="Image Transcription" {...a11yProps(2)} />
                 </Tabs>
             </Box>
 
-
             <TabPanel value={modelSelectionTab} index={0}>
-                <Typography pb={3} variant='h6'>TextRank Keyword Analysis</Typography>
+                <Typography pb={3} variant='h6'>ImageRank</Typography>
+                <Typography >
+                    Surface the most important images
+                </Typography>
+
+                <Typography pt={5} fontWeight='bold'>
+                    Images Uploaded:
+                </Typography>
+
+                <Box sx={{ maxHeight: '10rem', overflowY: 'scroll', mb: 5 }}>
+                    <List>
+                        {imageRankUploadedFiles.map((i) => {
+                            return <ListItem disablePadding key={i.name}>
+                                <ListItemText primary={i.name} />
+                            </ListItem >
+
+                        })}
+
+                    </List>
+
+                </Box>
+
+                <FileUploader name="file" handleChange={handleUploadImageRankImage} types={acceptedImageFileTypes} multiple />
+
+                <Stack direction="row" justifyContent="flex-end" spacing={2}>
+                    <Button variant='outlined' onClick={handleSubmitImageRankJob}>Submit</Button>
+                </Stack>
+            </TabPanel>
+
+            <TabPanel value={modelSelectionTab} index={1}>
+                <Typography pb={3} variant='h6'>TextRank Keyword Extraction</Typography>
                 <Typography>
-                    Cupidatat ad magna labore cillum non nulla anim do culpa velit ad qui incididunt.
-                    Sunt fugiat laborum eu enim minim deserunt ipsum non exercitation laboris proident elit.
+                    Extracts keywords from user-entered text of any length.
+                </Typography>
+                <Typography>
+                    This tool generates a list of relevant keywords and a network graph that visually represents the relationships between them.
+                </Typography>
+                <Typography pt={2}>
+                    This feature may be valuable for professionals in fields such as research and writing, as well as anyone looking to gain a deeper understanding of their text.
                 </Typography>
 
                 <Box mt={10}>
@@ -221,7 +336,7 @@ export function Homepage(props) {
             </TabPanel>
 
 
-            <TabPanel value={modelSelectionTab} index={1}>
+            <TabPanel value={modelSelectionTab} index={2}>
                 <Typography pb={3} variant='h6'>Some Image Model</Typography>
                 <Typography >
                     Cupidatat ad magna labore cillum non nulla anim do culpa velit ad qui incididunt.
@@ -234,7 +349,7 @@ export function Homepage(props) {
 
                 <Box sx={{ maxHeight: '10rem', overflowY: 'scroll', mb: 5 }}>
                     <List>
-                        {imageModelUploadedFiles.map((i) => {
+                        {imageTranscribeUploadedFiles.map((i) => {
                             return <ListItem disablePadding key={i.name}>
                                 <ListItemText primary={i.name} />
                             </ListItem >
@@ -248,21 +363,11 @@ export function Homepage(props) {
                 <FileUploader name="file" handleChange={handleUploadImage} types={acceptedImageFileTypes} multiple />
 
                 <Stack direction="row" justifyContent="flex-end" spacing={2}>
-                    <Button variant='outlined' onClick={handleSubmitImageModelJob}>Submit</Button>
+                    <Button variant='outlined' onClick={handleSubmitImageTranscribeJob}>Submit</Button>
                 </Stack>
-
-
-
-            </TabPanel>
-
-
-            <TabPanel value={modelSelectionTab} index={2}>
-                Description Three
             </TabPanel>
         </Box>
     })
-
-
 
     const JobViewerTabComponent = React.memo(() => {
 
@@ -279,17 +384,40 @@ export function Homepage(props) {
             </Box>
 
             <TabPanel value={jobViewerTab} index={0}>
-                <NetworkGraphComponent data={data} width={700} height={600} />
                 {
-                    completedJobs && completedJobs.get(idOfDisplayedJobResult) &&
-                    Object.entries(completedJobs.get(idOfDisplayedJobResult)).map(([k, v]) => {
-                        return <Typography>{k}: {v}</Typography>
-                    })
+                    displayedGraphData?.nodes?.length > 0 &&
+                    <Box pb={5}>
+                        <Typography variant='h6'>Graph</Typography>
+                        <Divider />
+                        <NetworkGraph2 data={displayedGraphData} />
+                    </Box>
+                }
+
+                {
+                    displayedImageURL &&
+                    <Box pb={5}>
+                        <Typography variant='h6'>Image</Typography>
+                        <Divider />
+
+                        <img src={displayedImageURL} width='75%' height='75%' />
+                    </Box>
+                }
+
+                {
+                    // completedJobToResultMap.get(idOfDisplayedJobResult)
+                    displayedTextResult &&
+                    <Box pb={5}>
+                        <Typography variant='h6'>Text</Typography>
+                        <Divider />
+
+                        <Typography whiteSpace='pre-wrap'>{displayedTextResult}</Typography>
+
+                    </Box>
 
                 }
 
                 {
-                    (!completedJobs || !completedJobs.get(idOfDisplayedJobResult)) &&
+                    (!completedJobToResultMap || !completedJobToResultMap.get(idOfDisplayedJobResult)) &&
                     <Stack direction="column" justifyContent="space-between" alignItems="center" spacing={2}>
                         <Typography>Data will be displayed here when you finish a job</Typography>
                     </Stack>
@@ -313,9 +441,9 @@ export function Homepage(props) {
 
     })
 
-    function JobsCreatedPanel() {
+    const JobsCreatedPanel = React.memo(() => {
         return <Box>
-            <Pagination count={jobsCreated.length} onChange={(event, page) => setSelectedJob(jobsCreated[page - 1])}> </Pagination>
+            <Pagination count={jobsCreated.length} onChange={(event, page) => { setSelectedJob(jobsCreated[page - 1]) }}> </Pagination>
             {
                 selectedJob && <Box pt={5}>
                     <Typography textAlign='center'>Task ID: {selectedJob.task_id}</Typography>
@@ -323,13 +451,13 @@ export function Homepage(props) {
                     <Typography textAlign='center'>completed: {selectedJob.completed.toString()}</Typography>
 
                     <Stack direction="row" justifyContent="flex-end" spacing={2} mt={5}>
-                        <Button variant="outlined" onClick={displaySelectedJobResult}>View Job Result</Button>
+                        <Button variant="outlined" onClick={JobHandler.displaySelectedJobResult}>View Job Result</Button>
                     </Stack>
                 </Box>
             }
 
         </Box>
-    }
+    })
 
     return <>
         <Grid container spacing={5} pl={10} pt={10}>
@@ -391,5 +519,111 @@ function a11yProps(index) {
 
 // end components for tabpanel
 
+// a function used to help redner the network graph
+function refreshDraggedNodePosition(e) {
+    const model = e.item.get('model');
+    model.fx = e.x;
+    model.fy = e.y;
+}
 
 
+function createGraphStructureFromTextRankData(data) {
+    // function expects input in the following form:
+    //  [
+    // {id: str, name: str, score: str, connected: [ids]}
+    // ]
+    let resultObj = { 'nodes': [], 'edges': [] }
+
+    let edgeMap = new Map()
+    data.forEach((i) => {
+        let node = {
+            id: `${i.id}`,
+            label: `${i.name}`,
+            score: `${i.score}`,
+            size: `${i.score}`,
+        }
+        i?.connected.forEach(other_id => edgeMap.set(i.id, other_id))
+        resultObj['nodes'].push(node)
+    })
+    edgeMap.forEach((id1, id2) => {
+        let edge = {
+            id: `${id1}-${id2}`,
+            source: `${id1}`,
+            target: `${id2}`,
+        }
+        resultObj['edges'].push(edge)
+    })
+    console.log(resultObj)
+    return resultObj
+
+
+}
+
+async function createGraphStructureFromImageData(fileArray) {
+    let resultObj = { 'nodes': [], 'edges': [] }
+
+    fileArray.forEach((file, index) => {
+        let url = URL.createObjectURL(file);
+
+        let newNode = {
+            'id': file.name,
+            'label': file.name,
+            'labelCfg': {
+                positions: 'bottom',
+                offset: 10,
+
+            },
+            'icon': {
+                show: true,
+                img: url,
+                width: 20,
+                height: 20
+            }
+        }
+        resultObj['nodes'].push(newNode);
+    })
+
+
+    return resultObj;
+}
+
+
+function NetworkGraph2({ data }) {
+    const ref = React.useRef(null);
+    let graph = null;
+
+
+    React.useEffect(() => {
+        if (!graph) {
+            graph = new G6.Graph({
+                container: ReactDOM.findDOMNode(ref.current),
+                width: 800,
+                height: 600,
+                defaultNode: {
+                },
+                defaultEdge: {
+                    // type: 'polyline',
+                },
+                modes: {
+                    default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
+                },
+                layout: {
+                    type: 'force',
+                    preventOverlap: true,
+                    linkDistance: 10
+
+                },
+            });
+        }
+
+
+        graph.data(data)
+        graph.render();
+
+        graph.on('afterlayout', e => {
+            graph.fitView()
+        })
+    }, []);
+
+    return <div ref={ref}></div>;
+}
