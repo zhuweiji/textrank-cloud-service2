@@ -37,7 +37,7 @@ class TextRank(metaclass=Singleton):
         log.info('loading spacy model...')
         self.nlp = spacy.load('en_core_web_lg') # generate a spacy natural language processing object
     
-    def sentence_extraction__undirected(self, text: str, iterations:int=50):
+    def sentence_extraction__undirected(self, text: str, iterations:int=100):
         if isinstance(text, str):
             text = _decode_unicode(text)
             text = _remove_non_ascii(text)
@@ -62,7 +62,7 @@ class TextRank(metaclass=Singleton):
         return result_nodes
         
     
-    def keyword_extraction__undirected(self, string:str, iterations:int=50, remove_stopwords:bool=True):
+    def keyword_extraction__undirected(self, string:str, iterations:int=100, remove_stopwords:bool=True):
         if remove_stopwords: string = _remove_stopwords(string)
         nodes = self._generate_nodes_from_cooccurence(string)
         result = PageRank.calculate__undirected_no_optimise(nodes, iterations=iterations)

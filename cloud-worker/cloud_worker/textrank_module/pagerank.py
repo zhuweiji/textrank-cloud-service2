@@ -96,16 +96,12 @@ class PageRank:
         while not complete:
             current_total_score = 0
             
-            marked = set()
             for node in nodes:
                 node_score = 0
-                if node in marked: continue
                 for i in node.connected: 
-                    other_node = i.get_other(node)
-                    marked.add(other_node)
+                    # other_node = i.get_other(node)
                     edge_weight = i.weight
                     node_score += edge_weight
-                    
                 
                 node_scores[node] = node_score
                 current_total_score += node_score
