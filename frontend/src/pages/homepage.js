@@ -17,7 +17,10 @@ import { styled } from '@mui/material/styles';
 import { FileUploader } from "react-drag-drop-files";
 
 import { HttpService } from '../services/api.js'
-import { NetworkGraphComponent } from '../components/NetworkGraph.js'
+
+import ReactDOM from 'react-dom';
+import G6 from '@antv/g6';
+
 
 class JobInProgress {
     constructor(task_id, task_type, completed) {
@@ -37,27 +40,6 @@ const MLServices = {
 
 }
 
-
-let data = {
-    nodes: [
-        { id: 'Myriel', group: 1 },
-        { id: 'Napoleon', group: 1 },
-        { id: 'ASD', group: 1 },
-        { id: 'DAS', group: 1 },
-        { id: 'BB', group: 1 },
-
-    ],
-    links: [
-        { source: 'Myriel', target: 'Napoleon', value: 1 },
-        { source: 'Napoleon', target: 'DAS', value: 1 },
-        { source: 'Napoleon', target: 'Napoleon', value: 1 },
-        { source: 'ASD', target: 'DAS', value: 1 },
-        { source: 'BB', target: 'DAS', value: 1 },
-        { source: 'ASD', target: 'BB', value: 1 },
-
-    ]
-}
-
 const heartbeatInterval = 10000;
 
 export function Homepage(props) {
@@ -74,10 +56,13 @@ export function Homepage(props) {
     const [completedJobs, setCompletedJobs] = React.useState(new Map());
     const [idOfDisplayedJobResult, setIdOfDisplayedJobResult] = React.useState(null);
 
-    const [modelSelectionTab, setModelSelectionTab] = React.useState(0);
-    const [jobViewerTab, setJobViewerTab] = React.useState(0);
+    const [modelSelectionTab, setModelSelectionTab] = React.useState(0); // the tab number of the current machine learning model selected (lhs display)
+    const [jobViewerTab, setJobViewerTab] = React.useState(0);           // the tab number of the right hand side display
 
-    const textFieldRef = useRef('') // a ref for the textField to enter ML input
+    const [displayedGraphData, setDisplayedGraphData] = React.useState({}) // the data used to render as network graph
+    const [jobMiscData, setJobMiscData] = React.useState({});
+
+    const textFieldRef = useRef('') // a ref for the textField (textfield to enter ML input)
 
     const handleUploadImageRankImage = (fileList) => {
         let files = Object.values(fileList);
@@ -88,6 +73,7 @@ export function Homepage(props) {
         let files = Object.values(fileList);
         setImageTranscribeUploadedFiles((old) => [...old, ...files]);
     };
+
 
     const handleSubmitImageRankJob = async () => {
         let files = imageRankUploadedFiles;
@@ -106,18 +92,24 @@ export function Homepage(props) {
         setImageTranscribeUploadedFiles([]);
     }
 
+    //  this probably shouldnt be in a usestate but i had issues updating the variable whether it was static or global
+    const [numJobsCreated, setNumJobsCreated] = React.useState(0);
     class JobHandler {
-        static numJobsCreated = 0;
 
         static async createNewImageRankJob(data) {
             const service = MLServices.ImageRank
 
-            let displayedJob = new JobInProgress(`${this.numJobsCreated}`, service, false)
+            // create a new job that the user can interact with that is only marked as completed when the underlying jobs to transcribe all the images are complete
+            const displayedJobTaskId = `ImageRank ${numJobsCreated}`
+            let displayedJob = new JobInProgress(displayedJobTaskId, service, false)
+            setNumJobsCreated((i) => i + 1)
+
             this.putJobOnDisplayedQueue(displayedJob)
 
             let response = await HttpService.image_transcribe_service(data);
             let task_ids = response.task_id_list
 
+            // create hidden jobs that are not visible to the user
             let hidden_jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
             let job_results = hidden_jobs.map(job => HttpService.get_job_result__long_poll(job.task_id, job))
 
@@ -126,7 +118,14 @@ export function Homepage(props) {
             // convert the array of objects to a string 
             values = values.map(i => Object.values(i)[0]).join('|')
 
-            this.handleJobCompletion({ 'data': values }, displayedJob)
+            this.completeJob({ 'data': values }, displayedJob)
+
+
+            let t = await createGraphStructureFromImageData(data);
+            setJobMiscData((old) => {
+                old[displayedJob.task_id] = { 'graphData': t }
+                return old;
+            })
         }
 
         static async createNewTextRankJob(data) {
@@ -153,26 +152,37 @@ export function Homepage(props) {
 
         static updateJobUIOnBackendCompletion(job) {
             HttpService.get_job_result__long_poll(job.task_id, job).then((job_result) => {
-                this.handleJobCompletion(job_result, job)
+                this.completeJob(job_result, job)
             })
         }
 
         static putJobOnDisplayedQueue(job) {
-            console.log(job)
             setJobsCreated((i) => [...i, job])
             if (jobsCreated.length === 0) {
                 setSelectedJob(job);
             }
         }
 
-        static handleJobCompletion = async (result, job) => {
+        static completeJob = async (result, job) => {
             job.setComplete();
             setCompletedJobs(new Map(completedJobs.set(job.task_id, result)))
+
+            //TODO - should do some conditionally parsing of results from backend
+            // textrank will return graph and node score 
+            // 
         }
 
         static displaySelectedJobResult = async () => {
+            const task_id = selectedJob.task_id
             setIdOfDisplayedJobResult(selectedJob.task_id);
             setJobViewerTab(0);
+
+            // if there is data misc data to be rendered as graph, then set the graph data 
+            console.log(jobMiscData)
+            if (jobMiscData?.[task_id]?.graphData) {
+                let graphData = jobMiscData[task_id]['graphData']
+                setDisplayedGraphData(graphData);
+            }
         }
     }
 
@@ -312,8 +322,6 @@ export function Homepage(props) {
         </Box>
     })
 
-
-
     const JobViewerTabComponent = React.memo(() => {
 
         const handleTabChange2 = (event, newValue) => {
@@ -329,7 +337,9 @@ export function Homepage(props) {
             </Box>
 
             <TabPanel value={jobViewerTab} index={0}>
-                <NetworkGraphComponent data={data} width={700} height={600} />
+                <NetworkGraph2 data={displayedGraphData} />
+                <Button variant='outlined' onClick={() => { setDisplayedGraphData({ 'nodes': [{ 'id': '2', 'label': '2' }] }) }}>Change</Button>
+
                 {
                     completedJobs && completedJobs.get(idOfDisplayedJobResult) &&
                     Object.entries(completedJobs.get(idOfDisplayedJobResult)).map(([k, v]) => {
@@ -441,5 +451,92 @@ function a11yProps(index) {
 
 // end components for tabpanel
 
+// a function used to help redner the network graph
+function refreshDraggedNodePosition(e) {
+    const model = e.item.get('model');
+    model.fx = e.x;
+    model.fy = e.y;
+}
 
 
+async function createGraphStructureFromImageData(fileArray) {
+    let resultObj = { 'nodes': [], 'edges': [] }
+
+    fileArray.forEach((file, index) => {
+        let url = URL.createObjectURL(file);
+
+        let newNode = {
+            'id': file.name,
+            'label': file.name,
+            'labelCfg': {
+                positions: 'bottom',
+                offset: 10,
+
+            },
+            'icon': {
+                show: true,
+                img: url,
+                width: 20,
+                height: 20
+            }
+        }
+        resultObj['nodes'].push(newNode);
+    })
+
+
+    return resultObj;
+}
+
+
+function NetworkGraph2({ data }) {
+    const ref = React.useRef(null);
+    let graph = null;
+
+
+    React.useEffect(() => {
+        if (!graph) {
+            graph = new G6.Graph({
+                container: ReactDOM.findDOMNode(ref.current),
+                width: 800,
+                height: 600,
+                defaultNode: {
+                },
+                defaultEdge: {
+                    // type: 'polyline',
+                },
+                modes: {
+                    default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
+                },
+                layout: {
+                    type: 'force',
+                    preventOverlap: true,
+                    linkDistance: 10
+
+                },
+            });
+        }
+
+
+        graph.data(data)
+        graph.render();
+
+        graph.on('afterlayout', e => {
+            graph.fitView()
+        })
+        // graph.on('node:dragstart', function (e) {
+        //     graph.layout();
+        //     refreshDraggedNodePosition(e);
+        // });
+        // graph.on('node:drag', function (e) {
+        //     const forceLayout = graph.get('layoutController').layoutMethods[0];
+        //     forceLayout.execute();
+        //     refreshDraggedNodePosition(e);
+        // });
+        // graph.on('node:dragend', function (e) {
+        //     e.item.get('model').fx = null;
+        //     e.item.get('model').fy = null;
+        // });
+    }, []);
+
+    return <div ref={ref}></div>;
+}
