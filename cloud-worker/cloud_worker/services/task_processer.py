@@ -14,11 +14,13 @@ from PIL import Image
 
 
 class TaskType(Enum):
-    KEYWORD_EXTRACTION = 'KEYWORD_EXTRACTION'
+    KEYWORD_EXTRACTION  = 'KEYWORD_EXTRACTION'
     IMAGE_TRANSCRIPTION = 'IMAGE_TRANSCRIPTION'
+    SENTENCE_EXTRACTION = 'SENTENCE_EXTRACTION'
 
 class TaskProcesor:
     work_queue_provider = RabbitMQHandler
+    job_handler         = TextRank()
     
     @classmethod
     async def process_task(cls, message: AbstractIncomingMessage):
@@ -33,7 +35,7 @@ class TaskProcesor:
         if task_type == TaskType.KEYWORD_EXTRACTION.value:
             data = message.body.decode()
             
-            result =  cls.handle_text_keyword_extraction(data)
+            result =  cls.job_handler.keyword_extraction__undirected(data)
             encoded_data = pickle.dumps(result)
             
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, encoded_data, 
@@ -53,6 +55,17 @@ class TaskProcesor:
             
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, result, {'task_type': TaskType.IMAGE_TRANSCRIPTION.value, 'task_id':task_id})
             
+        elif task_type == TaskType.SENTENCE_EXTRACTION.value:
+            data = message.body.decode()
+            
+            result = cls.job_handler.sentence_extraction__undirected(data)
+            encoded_data = pickle.dumps(result)
+            
+            await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, encoded_data, 
+                                          {'task_type': TaskType.SENTENCE_EXTRACTION.value,
+                                           'task_id':task_id,
+                                           'pickled': True})
+            
         else:
             log.warning(f'Could not interpret task: {headers}')
             
@@ -62,12 +75,3 @@ class TaskProcesor:
     async def listen_for_incoming_tasks(cls):
         await cls.work_queue_provider.listen(RABBITMQ_JOB_QUEUE_NAME, on_message_handler=TaskProcesor.process_task)
     
-    @classmethod
-    def handle_text_keyword_extraction(cls, request_text):
-        result = TextRank.keyword_extraction__undirected(request_text)
-        return result
-        
-        # result_as_str = [str(i) for i in result]
-        # result_as_str = ", ".join(result_as_str)
-        
-        # return result_as_str

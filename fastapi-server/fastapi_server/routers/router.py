@@ -39,12 +39,19 @@ router = APIRouter(
 
 @router.post('/text_rank')
 async def text_rank_route(body: Text_Transcribe_Request):
-    job = await JobProcessor.create_text_rank_job(body)
+    job = await JobProcessor.create_keyword_extraction_job(body)
     if job:
         return job_created_response(job.task_id)
     else:
         raise HTTPException(status_code=500, detail='an error occured while creating the task')
 
+@router.post('/sentence_extraction')
+async def sentence_extraction_route(body: Text_Transcribe_Request):
+    job = await JobProcessor.create_sentence_extraction_job(body)
+    if job:
+        return job_created_response(job.task_id)
+    else:
+        raise HTTPException(status_code=500, detail='an error occured while creating the task')
 
 @router.post('/image_transcribe')
 async def image_transcribe_route(images: list[UploadFile]):

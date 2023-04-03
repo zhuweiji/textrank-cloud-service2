@@ -21,6 +21,8 @@ import { HttpService } from '../services/api.js'
 import ReactDOM from 'react-dom';
 import G6 from '@antv/g6';
 
+import './homepage.css'
+
 
 class JobInProgress {
     constructor(task_id, task_type, completed) {
@@ -37,8 +39,8 @@ class JobInProgress {
 const MLServices = {
     ImageRank: 'ImageRank',
     TextRank: 'TextRank',
+    SentenceExtraction: 'SentenceExtraction',
     ImageTranscribe: 'ImageTranscribe',
-
 }
 
 class JobDisplayedData {
@@ -75,6 +77,7 @@ export function Homepage(props) {
     const [displayedTextResult, setDisplayedTextResult] = React.useState('');
     // const [jobMiscData, setJobMiscData] = React.useState({});
 
+    const sentenceExtractiontextFieldRef = useRef('')
     const textFieldRef = useRef('') // a ref for the textField (textfield to enter ML input)
 
     const handleUploadImageRankImage = (fileList) => {
@@ -99,6 +102,14 @@ export function Homepage(props) {
     const handleSubmitTextRankJob = async () => {
         let value = textFieldRef.current.value;
         JobHandler.createNewTextRankJob(value);
+
+        setJobViewerTab(1);
+
+    }
+
+    const handleSubmitSentenceExtractionJob = () => {
+        let value = sentenceExtractiontextFieldRef.current.value;
+        JobHandler.createNewSentenceExtractionJob(value);
 
         setJobViewerTab(1);
 
@@ -161,6 +172,33 @@ export function Homepage(props) {
             let displayedOutputText = filteredResultData.join(', ')
             this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
         }
+
+        static async createNewSentenceExtractionJob(data) {
+            const service = MLServices.SentenceExtraction
+
+            let response = await HttpService.sentence_extraction_service(data);
+            let task_id = response.task_id
+            let job = new JobInProgress(task_id, service, false)
+            this.putJobOnDisplayedQueue(job)
+            let result = await this.getJobResult(job)
+
+            let resultData = result.result
+            let resultModified = [];
+            for (let obj of resultData) {
+                obj['tooltip'] = obj.name
+                obj['name'] = obj.name.slice(0, 10)
+                resultModified.push(obj)
+            }
+            console.log(resultModified)
+            let graphData = createGraphStructureFromTextRankData(resultModified);
+
+
+            let filteredResultData = resultData.filter(i => i.score > 1).map(i => i.name)
+            let displayedOutputText = filteredResultData.join(', ')
+            this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
+        }
+
+
 
         static async createNewImageTranscribeJob(data) {
             const service = MLServices.ImageTranscribe
@@ -271,6 +309,7 @@ export function Homepage(props) {
                 <Tabs value={modelSelectionTab} onChange={handleTabChange} aria-label="basic tabs example">
                     <Tab label="ImageRank" {...a11yProps(0)} />
                     <Tab label="TextRank" {...a11yProps(1)} />
+                    <Tab label="Sentence Extraction" {...a11yProps(1)} />
                     <Tab label="Image Transcription" {...a11yProps(2)} />
                 </Tabs>
             </Box>
@@ -330,8 +369,34 @@ export function Homepage(props) {
 
             </TabPanel>
 
-
             <TabPanel value={modelSelectionTab} index={2}>
+                <Typography pb={3} variant='h6'>Sentence Extraction</Typography>
+                <Typography>
+                    Amet amet ad mollit consectetur consectetur nulla Lorem adipisicing aute in labore.
+                </Typography>
+                <Typography>
+                    Cupidatat magna in mollit reprehenderit cillum eu elit exercitation cupidatat consequat officia elit duis.
+                    Do eiusmod irure labore id pariatur do et ea adipisicing reprehenderit.
+                </Typography>
+                <Typography pt={2}>
+                    Cillum sit cillum aute reprehenderit adipisicing eu nulla incididunt id.
+                </Typography>
+
+                <Box mt={10}>
+                    <TextField fullWidth multiline minRows={10} maxRows={10}
+                        inputRef={sentenceExtractiontextFieldRef}
+                        label="Description" variant="outlined"
+                    />
+
+                    <Stack direction="row" justifyContent="end" pt={5}>
+                        <Button variant="outlined" onClick={handleSubmitSentenceExtractionJob}>Submit</Button>
+                    </Stack>
+                </Box>
+
+            </TabPanel>
+
+
+            <TabPanel value={modelSelectionTab} index={3}>
                 <Typography pb={3} variant='h6'>Some Image Model</Typography>
                 <Typography >
                     Cupidatat ad magna labore cillum non nulla anim do culpa velit ad qui incididunt.
@@ -533,9 +598,10 @@ function createGraphStructureFromTextRankData(data) {
     data.forEach((i) => {
         let node = {
             id: `${i.id}`,
-            label: `${i.name}`,
+            label: `${i.name.slice(0, 30)}`,
             score: `${i.score}`,
             size: `${i.score}`,
+            tooltip: `${i.tooltip}`
         }
         i?.connected.forEach(other_id => edgeMap.set(i.id, other_id))
         resultObj['nodes'].push(node)
@@ -587,6 +653,22 @@ function NetworkGraph2({ data }) {
     const ref = React.useRef(null);
     let graph = null;
 
+    const tooltip = new G6.Tooltip({
+        offsetX: 10,
+        offsetY: 20,
+        getContent(e) {
+            const outDiv = document.createElement('div');
+            outDiv.style.width = '180px';
+            let v = e.item.getModel().tooltip;
+            if (v === 'undefined') { // the thing is defined as a string..
+                v = e.item.getModel().label
+            }
+            let g = e.item.getModel().score || ''
+            outDiv.innerHTML = `<p>${v}</p><br><p>score: ${g}</p>`
+            return outDiv
+        },
+        itemTypes: ['node']
+    });
 
     React.useEffect(() => {
         if (!graph) {
@@ -600,7 +682,7 @@ function NetworkGraph2({ data }) {
                     // type: 'polyline',
                 },
                 modes: {
-                    default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
+                    default: ['drag-canvas', 'zoom-canvas', 'drag-node',],
                 },
                 layout: {
                     type: 'force',
@@ -608,6 +690,8 @@ function NetworkGraph2({ data }) {
                     linkDistance: 10
 
                 },
+                plugins: [tooltip], // Use Tooltip plugin
+
             });
         }
 

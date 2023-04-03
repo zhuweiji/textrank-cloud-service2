@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 class TaskType(Enum):
     KEYWORD_EXTRACTION = 'KEYWORD_EXTRACTION'
     IMAGE_TRANSCRIPTION = 'IMAGE_TRANSCRIPTION'
+    SENTENCE_EXTRACTION = 'SENTENCE_EXTRACTION'
     
     
 @dataclass
@@ -48,7 +49,7 @@ class JobProcessor:
         return job if job_start_result else False
             
     @classmethod
-    async def create_text_rank_job(cls, request_body: Text_Transcribe_Request):
+    async def create_keyword_extraction_job(cls, request_body: Text_Transcribe_Request):
         request_text = request_body.text
         job = JobSpecification(
             task_type=TaskType.KEYWORD_EXTRACTION,
@@ -56,7 +57,18 @@ class JobProcessor:
         
         job_start_result = await cls.publish_new_job(job)
         return job if job_start_result else False
+    
+    @classmethod
+    async def create_sentence_extraction_job(cls, request_body: Text_Transcribe_Request):
+        request_text = request_body.text
+        job = JobSpecification(
+            task_type=TaskType.SENTENCE_EXTRACTION,
+            data=request_text,)
         
+        job_start_result = await cls.publish_new_job(job)
+        return job if job_start_result else False
+        
+                
     @classmethod 
     async def publish_new_job(cls, job: JobSpecification):
         headers = {'task_type': job.task_type.value, 'task_id':job.task_id, 'other_info': job.other_information}
@@ -93,6 +105,14 @@ class JobProcessor:
                 task_id=str(task_id)
                 )
             cls.completed_jobs[task_id] = job
+        elif task_type == TaskType.SENTENCE_EXTRACTION.value:
+            job = JobSpecification(
+                task_type=TaskType.SENTENCE_EXTRACTION,
+                data=data,
+                task_id=str(task_id)
+                )
+            cls.completed_jobs[task_id] = job
+            
         else:
             raise NotImplementedError
 

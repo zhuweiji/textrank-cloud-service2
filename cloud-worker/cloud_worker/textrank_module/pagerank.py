@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from itertools import count
 from operator import itemgetter
 from threading import current_thread
-from typing import List
+from typing import Any, List, Tuple, Union
 
 log = logging.getLogger(__name__)
 
@@ -15,20 +15,24 @@ log = logging.getLogger(__name__)
 class Undirected_Node:
     id:         int = field(default_factory=count().__next__, init=False)
     name:       str = ''
-    connected:  set = field(default_factory=lambda: set(), repr=False)
+    connected:  set[Undirected_Edge] = field(default_factory=lambda: set(), repr=False)
     
-    def to(self, other: Undirected_Node):
-        self.connected.add(other)
-        other.connected.add(self)
+    def to(self, other: Undirected_Node, weight:Union[int, float]=1):
+        self.connected.add(Undirected_Edge(self, other, weight))
         
     def __hash__(self) -> int:
         return hash(self.id)
+    
+    def __repr__(self) -> str:
+        return f'Undirected Node {self.id}: {[i.get_other(self).id for i in self.connected]}'
+    
+    def __eq__(self, __value: Undirected_Node) -> bool:
+        return self.id == __value.id
     
     def full_str(self):
         return f"Undirected Node {self.name}: {self.connected}"
     
     def asdict(self):
-        # this takes a long ass time
         class_attributes = [attr for attr in dir(self) 
                             if '__' not in attr and not callable(getattr(self, attr))
                             and attr != 'connected']
@@ -36,28 +40,55 @@ class Undirected_Node:
         # class_attributes = ['id','name']
         
         self_asdict = {attr: getattr(self, attr) for attr in class_attributes}
-        self_asdict['connected'] = [i.id for i in self.connected]
+        self_asdict['connected'] = [i.get_other(self).id for i in self.connected]
         return self_asdict
+
+@dataclass
+class Undirected_Edge:
+    first : Undirected_Node
+    second: Undirected_Node
+    
+    weight: Union[int,float] = 1
+    
+    def get_other(self, other_node: Undirected_Node):
+        return self.second if self.first == other_node else self.first
+    
+    def __hash__(self) -> int:
+        return hash(f"{self.first}-{self.second}")
 
 @dataclass
 class Directed_Node:
     id:      int = field(default_factory=count().__next__, init=False)
     name:    str = ''
-    in_set:  set = field(default_factory=lambda: set(), repr=False)
-    out_set: set = field(default_factory=lambda: set(), repr=False)
+    in_set:  set[Directed_Edge] = field(default_factory=lambda: set(), repr=False)
+    out_set: set[Directed_Edge] = field(default_factory=lambda: set(), repr=False)
     
-    def to(self, other: Directed_Node):
-        self.out_set.add(other)
-        other.in_set.add(self)
+    def to_node(self, other: Directed_Node, weight=1):
+        edge = Directed_Edge(from_node=self, to_node=other, weight=weight)
+        self.out_set.add(edge)
+        other.in_set.add(edge)
+        
+    def from_node(self, other: Directed_Node, weight=1):
+        edge = Directed_Edge(from_node=other, to_node=self, weight=weight)
+        self.in_set.add(edge)
+        other.out_set.add(edge)
         
     def __hash__(self) -> int:
         return hash(self.id)
-    
-    
+
+@dataclass
+class Directed_Edge:
+    from_node: Directed_Node
+    to_node  : Directed_Node
+    weight: int = 1
+        
 class PageRank:
+    
     @classmethod
-    def calculate__undirected_no_optimse(cls, nodes: List[Undirected_Node], iterations:int = 10):
-        node_scores = {i:1 for i in nodes}
+    def calculate__undirected_no_optimise(cls, nodes: List[Undirected_Node], iterations:int = 10):
+        """Calculate scores for nodes given a list of nodes which are connected via directionless connection (a undirected graph)"""
+        
+        node_scores = {i:1.0 for i in nodes}
         
         current_total_score = None
         complete = False
@@ -67,9 +98,14 @@ class PageRank:
             
             marked = set()
             for node in nodes:
+                node_score = 0
                 if node in marked: continue
-                for i in node.connected: marked.add(i)
-                node_score = sum(node_scores[i] for i in node.connected)
+                for i in node.connected: 
+                    other_node = i.get_other(node)
+                    marked.add(other_node)
+                    edge_weight = i.weight
+                    node_score += edge_weight
+                    
                 
                 node_scores[node] = node_score
                 current_total_score += node_score
@@ -84,17 +120,16 @@ class PageRank:
         
     @classmethod
     def calculate__directed_no_optimise(cls, nodes: List[Directed_Node], iterations:int = 10):
+        """Calculate scores for nodes given a list of nodes which are connected via one-way connections (a directed graph)"""
         node_scores = {i:1 for i in nodes}
         
         complete = False
         current_total_score = None
         
         while not complete:
-            previous_total_score = current_total_score or 0 
-                
             current_total_score = 0
             for node in nodes:
-                node_score =  sum(node_scores[i] for i in node.in_set)
+                node_score =  sum(i.weight for i in node.in_set)
                 node_scores[node] = node_score
                 
                 current_total_score += node_score
@@ -104,42 +139,4 @@ class PageRank:
             
         log.debug(f'iterations={iterations}')        
         return node_scores
-            
-
-# class PageRankTestBench:
-#     @staticmethod
-#     def setup__directed(NUM_NODES: int, NUM_EDGES: int):
-#         nodes = [Directed_Node() for i in range(NUM_NODES)]
-#         for _ in range(NUM_EDGES):
-#             from_node = random.choice(nodes)
-#             to_node = random.choice(nodes)
-#             from_node.to(to_node)         
-        
-#         return nodes   
                 
-#     @staticmethod
-#     def setup__undirected(NUM_NODES: int, NUM_EDGES: int):
-#         nodes = [Undirected_Node() for i in range(NUM_NODES)]
-#         for _ in range(NUM_EDGES):
-#             from_node = random.choice(nodes)
-#             to_node = random.choice(nodes)
-#             from_node.to(to_node)         
-        
-#         return nodes   
-
-# if __name__ == "__main__":
-#     NUM_NODES = 250
-#     NUM_EDGES = 250
-    
-#     nodes = PageRankTestBench.setup(NUM_NODES=1000, NUM_EDGES=1000)
-#     node_scores = PageRank.calculate__undirected_no_optimse(nodes=nodes, convergence_threshold=2)
-    
-#     filtered = {k.id: v
-#         for k,v in node_scores.items()
-#     }
-#     node_scores_sorted = sorted(filtered.items(), key=lambda x:x[1], reverse=True)
-    
-#     log.info(node_scores_sorted[:5])
-#     log.info(node_scores_sorted[-5:])
-    
-    
