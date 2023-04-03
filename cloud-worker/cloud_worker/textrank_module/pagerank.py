@@ -56,18 +56,13 @@ class Directed_Node:
     
 class PageRank:
     @classmethod
-    def calculate__undirected_no_optimse(cls, nodes: List[Undirected_Node], convergence_threshold: float = 0, iterations:int = 10):
-        if convergence_threshold and iterations: raise ValueError('cannot have both args at once')
-        
+    def calculate__undirected_no_optimse(cls, nodes: List[Undirected_Node], iterations:int = 10):
         node_scores = {i:1 for i in nodes}
         
         current_total_score = None
-        iterations = iterations or 0
-        
         complete = False
         
         while not complete:
-            previous_total_score = current_total_score or 0 
             current_total_score = 0
             
             marked = set()
@@ -79,12 +74,8 @@ class PageRank:
                 node_scores[node] = node_score
                 current_total_score += node_score
                 
-            if convergence_threshold:
-                if current_total_score - previous_total_score < convergence_threshold: complete = True
-                iterations += 1
-            elif iterations:
-                iterations -= 1
-                if iterations <= 1: complete = True
+            iterations -= 1
+            if iterations <= 1: complete = True
             log.debug(f'iterations={iterations}')        
             
         return node_scores
@@ -92,15 +83,12 @@ class PageRank:
             
         
     @classmethod
-    def calculate__directed_no_optimise(cls, nodes: List[Directed_Node], convergence_threshold: float, iterations:int = 10):
-        if convergence_threshold and iterations: raise ValueError('cannot have both args at once')
-        
+    def calculate__directed_no_optimise(cls, nodes: List[Directed_Node], iterations:int = 10):
         node_scores = {i:1 for i in nodes}
         
         complete = False
         current_total_score = None
         
-        iterations = iterations or 0
         while not complete:
             previous_total_score = current_total_score or 0 
                 
@@ -111,12 +99,8 @@ class PageRank:
                 
                 current_total_score += node_score
             
-            if convergence_threshold:
-                if current_total_score - previous_total_score < convergence_threshold: complete = True
-                iterations += 1
-            elif iterations:
-                iterations -= 1
-                if iterations <= 1: complete = True
+            iterations -= 1
+            if iterations <= 1: complete = True
             
         log.debug(f'iterations={iterations}')        
         return node_scores
