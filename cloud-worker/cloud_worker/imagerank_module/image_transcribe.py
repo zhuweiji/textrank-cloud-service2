@@ -24,7 +24,8 @@ class ImageInterrogator:
             image = Image.open(fileobj).convert('RGB')
             log.info(image)
             image_text = cls.interrogator.interrogate_fast(image)
-            return image_text
+            return ','.join(image_text.split(',')[:2])
+            
         except:
             log.exception('Exception while trying to run CLIP on an image')
         
