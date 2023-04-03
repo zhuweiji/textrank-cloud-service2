@@ -1,5 +1,6 @@
 
 import logging
+import pickle
 import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
@@ -73,19 +74,19 @@ class JobProcessor:
     
         task_type = headers['task_type']
         task_id   = headers['task_id']
+        pickled   = headers.get('pickled', None)
+        
+        data = message.body.decode() if not pickled else pickle.loads(message.body) 
+        
         
         if task_type == TaskType.KEYWORD_EXTRACTION.value:
             job = JobSpecification(
                 task_type=TaskType.KEYWORD_EXTRACTION,
-                data=message.body.decode(),
+                data=data,
                 task_id=str(task_id)
                 )
             cls.completed_jobs[task_id] = job
         elif task_type == TaskType.IMAGE_TRANSCRIPTION.value:
-            # the output of the model is multiple results delimited by comma (although a result may contain a comma as well)
-            # we don't want all the results, just maybe the top two
-            data = ','.join(message.body.decode().split(',')[:2])
-            
             job = JobSpecification(
                 task_type=TaskType.IMAGE_TRANSCRIPTION,
                 data=data,

@@ -1,5 +1,6 @@
 import io
 import logging
+import pickle
 from enum import Enum
 
 from aio_pika.abc import AbstractIncomingMessage
@@ -33,8 +34,13 @@ class TaskProcesor:
             data = message.body.decode()
             
             result =  cls.handle_text_keyword_extraction(data)
-            log.info(result)
-            await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, result, {'task_type': TaskType.KEYWORD_EXTRACTION.value, 'task_id':task_id})
+            result = [i.asdict() for i in result]
+            encoded_data = pickle.dumps(result)
+            
+            await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, encoded_data, 
+                                          {'task_type': TaskType.KEYWORD_EXTRACTION.value,
+                                           'task_id':task_id,
+                                           'pickled': True})
             
             
         elif task_type == TaskType.IMAGE_TRANSCRIPTION.value:
@@ -44,7 +50,10 @@ class TaskProcesor:
             image_obj = io.BytesIO(image_data)
             
             result = ImageInterrogator.convert_image_to_text(image_obj)
-            log.warning(result)
+            if not result:
+                log.warning('No result from image transcription')
+                return
+            
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, result, {'task_type': TaskType.IMAGE_TRANSCRIPTION.value, 'task_id':task_id})
             
             
@@ -59,8 +68,9 @@ class TaskProcesor:
     @classmethod
     def handle_text_keyword_extraction(cls, request_text):
         result = TextRank.keyword_extraction__undirected(request_text)
-            
-        result_as_str = [str(i) for i in result]
-        result_as_str = ", ".join(result_as_str)
+        return result
         
-        return result_as_str
+        # result_as_str = [str(i) for i in result]
+        # result_as_str = ", ".join(result_as_str)
+        
+        # return result_as_str
