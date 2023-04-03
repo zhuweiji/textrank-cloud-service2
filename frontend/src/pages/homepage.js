@@ -216,15 +216,10 @@ export function Homepage(props) {
                 console.warn(`tried to display ${task_id}} but that job doesn't have a result`)
                 return
             }
-            if (result.text) {
-                setDisplayedTextResult(result.text)
-            }
-            if (result.image) {
-                setDisplayedImageURL(result.image)
-            }
-            if (result.graph) {
-                setDisplayedGraphData(result.graph)
-            }
+
+            setDisplayedTextResult(result.text)
+            setDisplayedImageURL(result.image)
+            setDisplayedGraphData(result.graph)
         }
     }
 
