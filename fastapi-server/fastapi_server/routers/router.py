@@ -92,11 +92,166 @@ async def image_transcribe_route(images: list[UploadFile]):
 
 @router.get('/check_task_result')
 async def get_job_result_route(task_id: str):
-    while True:
-        job = JobProcessor.check_job_status(task_id)
-        if job:
-            return job_completed_response(task_id=job.task_id, result=job.data)
-        else:
-            await asyncio.sleep(1)
+
+    return {
+    "task_id": "01GX5FGK5RCPRR6FX6SV4X97WA",
+    "result": [
+        {
+            "id": 3,
+            "name": "et",
+            "connected": [
+                1,
+                5,
+                4,
+                2
+            ],
+            "score": 4
+        },
+        {
+            "id": 6,
+            "name": "aute",
+            "connected": [
+                4,
+                5,
+                7,
+                8
+            ],
+            "score": 4
+        },
+        {
+            "id": 9,
+            "name": "enim",
+            "connected": [
+                11,
+                8,
+                7,
+                10
+            ],
+            "score": 4
+        },
+        {
+            "id": 12,
+            "name": "amet",
+            "connected": [
+                10,
+                11,
+                13
+            ],
+            "score": 3
+        },
+        {
+            "id": 0,
+            "name": "Qui",
+            "connected": [
+                2,
+                1
+            ],
+            "score": 2
+        },
+        {
+            "id": 1,
+            "name": "irure",
+            "connected": [
+                3,
+                2
+            ],
+            "score": 1.0
+        },
+        {
+            "id": 2,
+            "name": "nisi",
+            "connected": [
+                4,
+                3,
+                1,
+                0
+            ],
+            "score": 1.0
+        },
+        {
+            "id": 4,
+            "name": "veniam",
+            "connected": [
+                6,
+                5,
+                3,
+                2
+            ],
+            "score": 1.0
+        },
+        {
+            "id": 5,
+            "name": "eu",
+            "connected": [
+                4,
+                6,
+                3,
+                7
+            ],
+            "score": 1.0
+        },
+        {
+            "id": 7,
+            "name": "ex",
+            "connected": [
+                9,
+                6,
+                5,
+                8
+            ],
+            "score": 1.0
+        },
+        {
+            "id": 8,
+            "name": "culpa",
+            "connected": [
+                10,
+                6,
+                9,
+                7
+            ],
+            "score": 1.0
+        },
+        {
+            "id": 10,
+            "name": "ea",
+            "connected": [
+                12,
+                11,
+                9,
+                8
+            ],
+            "score": 1.0
+        },
+        {
+            "id": 11,
+            "name": "ad",
+            "connected": [
+                10,
+                13,
+                12,
+                9
+            ],
+            "score": 1.0
+        },
+        {
+            "id": 13,
+            "name": "esse.",
+            "connected": [
+                12,
+                11
+            ],
+            "score": 1.0
+        }
+    ]
+    }
+
+    # while True:
+    #     job = JobProcessor.check_job_status(task_id)
+    #     if job:
+    #         log.info(job_completed_response(task_id=job.task_id, result=job.data))
+    #         return job_completed_response(task_id=job.task_id, result=job.data)
+    #     else:
+    #         await asyncio.sleep(1)
             
         
