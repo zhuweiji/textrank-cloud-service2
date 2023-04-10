@@ -519,7 +519,7 @@ export function Homepage(props) {
 
     const JobsCreatedPanel = React.memo(() => {
         return <Box>
-            <Pagination count={jobsCreated.length} onChange={(event, page) => { setSelectedJob(jobsCreated[page - 1]) }}> </Pagination>
+            <Pagination count={jobsCreated.length} page={jobsCreated.indexOf(selectedJob) + 1} onChange={(event, page) => { setSelectedJob(jobsCreated[page - 1]) }}> </Pagination>
             {
                 selectedJob && <Box pt={5}>
                     <Typography textAlign='center'>Task ID: {selectedJob.task_id}</Typography>
