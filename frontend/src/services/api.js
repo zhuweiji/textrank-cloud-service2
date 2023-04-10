@@ -15,17 +15,19 @@ export class HttpService {
             });
 
         if (response.status !== 200) {
-            console.warn(response)
+            let error = await response.json()
+            console.log(error)
+            throw Error
         }
 
         let result = await response.json();
         return result;
     }
 
-    static async sentence_extraction_service(text) {
+    static async sentence_extraction_service(str) {
         let url = `${BACKEND_URL}/sentence_extraction`
         let data = {
-            text: text
+            text: str
         }
 
         let response = await fetch(url,
@@ -36,7 +38,32 @@ export class HttpService {
             });
 
         if (response.status !== 200) {
-            console.warn(response)
+            let error = await response.json()
+            console.log(error)
+            throw Error
+        }
+
+        let result = await response.json();
+        return result;
+    }
+
+    static async image_rank_w_sentences_service(str) {
+        let url = `${BACKEND_URL}/create_image_rank_w_sentences_job`
+        let data = {
+            delimited_text: str
+        }
+
+        let response = await fetch(url,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', },
+                body: JSON.stringify(data)
+            });
+
+        if (response.status !== 200) {
+            let error = await response.json()
+            console.log(error)
+            throw Error
         }
 
         let result = await response.json();
@@ -58,8 +85,9 @@ export class HttpService {
             });
 
         if (response.status !== 200) {
-            console.warn(response)
-
+            let error = await response.json()
+            console.log(error)
+            throw Error
         }
         let result = await response.json();
         return result;
@@ -85,8 +113,9 @@ export class HttpService {
 
         }
         if (response.status !== 200) {
-            console.warn(response)
-
+            let error = await response.json()
+            console.log(error)
+            throw Error
         }
         let result = await response.json();
         return result;

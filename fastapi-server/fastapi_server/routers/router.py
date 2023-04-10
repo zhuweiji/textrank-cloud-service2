@@ -16,7 +16,11 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-from fastapi_server.entities.POST_bodies import Text_Transcribe_Request
+from fastapi_server.entities.POST_bodies import (
+    Image_Rank_with_Sentences,
+    Sentence_Extraction_Request,
+    Text_Transcribe_Request,
+)
 from fastapi_server.entities.responses import (
     endpoint_not_implemented_response,
     job_completed_response,
@@ -46,12 +50,21 @@ async def text_rank_route(body: Text_Transcribe_Request):
         raise HTTPException(status_code=500, detail='an error occured while creating the task')
 
 @router.post('/sentence_extraction')
-async def sentence_extraction_route(body: Text_Transcribe_Request):
+async def sentence_extraction_route(body: Sentence_Extraction_Request):
     job = await JobProcessor.create_sentence_extraction_job(body)
     if job:
         return job_created_response(job.task_id)
     else:
         raise HTTPException(status_code=500, detail='an error occured while creating the task')
+    
+@router.post('/create_image_rank_w_sentences_job')
+async def create_image_rank_w_sentences_route(body: Image_Rank_with_Sentences):
+    job = await JobProcessor.create_image_rank_w_sentences_job(body)
+    if job:
+        return job_created_response(job.task_id)
+    else:
+        raise HTTPException(status_code=500, detail='an error occured while creating the task')
+    
 
 @router.post('/image_transcribe')
 async def image_transcribe_route(images: list[UploadFile]):
@@ -64,8 +77,8 @@ async def image_transcribe_route(images: list[UploadFile]):
     
     data = []
     for image in images:
-        suffix = get_file_suffix(image)
-        if suffix not in ('png','jpg'): raise HTTPException(400, 'The file must be either a .jpg or .png file')
+        suffix = get_file_suffix(image).lower()
+        if suffix not in ('png','jpg'): raise HTTPException(400, f'The file must be either a .jpg or .png file: got {suffix} instead')
         
         file_data = image.file.read()
         if len(file_data) > 52_428_800: #50mb
@@ -80,7 +93,6 @@ async def image_transcribe_route(images: list[UploadFile]):
     successfully_started_jobs = [i.task_id for i in result if i]
     unsuccessful_jobs         = [i for i in result if not i]
     
-    log.warning(successfully_started_jobs)
     if unsuccessful_jobs:
         log.warning(f'unable to start some image transcribe jobs: {unsuccessful_jobs}')
     
