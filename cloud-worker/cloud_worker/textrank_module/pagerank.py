@@ -85,7 +85,7 @@ class Directed_Edge:
 class PageRank:
     
     @classmethod
-    def calculate__undirected_no_optimise(cls, nodes: List[Undirected_Node], iterations:int = 10):
+    def calculate__undirected_no_optimise(cls, nodes: List[Undirected_Node], iterations:int = 10, random_surf_prob:float=0.1):
         """Calculate scores for nodes given a list of nodes which are connected via directionless connection (a undirected graph)"""
         
         node_scores = {i:1.0 for i in nodes}
@@ -99,7 +99,12 @@ class PageRank:
             for node in nodes:
                 node_score = 0
                 for i in node.connected: 
-                    # other_node = i.get_other(node)
+                    # add random surfer probability here to mitigate dead end nodes
+                    if random.random() - random_surf_prob <= 0:
+                        random_node = random.choice(nodes)
+                        if random_node.connected:
+                            i = random.choice(tuple(random_node.connected))
+                    
                     edge_weight = i.weight
                     node_score += edge_weight
                 

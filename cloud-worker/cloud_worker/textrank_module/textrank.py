@@ -37,18 +37,22 @@ class TextRank(metaclass=Singleton):
         log.info('loading spacy model...')
         self.nlp = spacy.load('en_core_web_lg') # generate a spacy natural language processing object
     
-    def sentence_extraction__undirected(self, text: str, iterations:int=100):
+    def sentence_extraction__undirected(self, text: Union[str, List[str]], iterations:int=100):
         if isinstance(text, str):
             text = _decode_unicode(text)
             text = _remove_non_ascii(text)
             nodes = [i.as_doc() for i in self.nlp(text).sents]
-            
-        else: raise ValueError
         
-        # nodes = [self.nlp(i) for i in _remove_non_core_words(nodes)]
-        # nodes_copy = nodes[:]
+        elif isinstance(text, List):
+            text = [_decode_unicode(i) for i in text]
+            text = [_remove_non_ascii(i) for i in text]
+            nodes = [self.nlp(i) for i in text]
+            
+        else: raise ValueError( f'expected str, instead got {type(text)}')
+        
         
         nodes = self._generate_nodes_from_similarity(nodes)
+        
         result = PageRank.calculate__undirected_no_optimise(nodes, iterations=iterations)
         
         sorted_result = sorted(result.items(), key=lambda x:x[1], reverse=True)
@@ -59,6 +63,7 @@ class TextRank(metaclass=Singleton):
                 node_dict = node.asdict()
                 node_dict['score'] = score
                 result_nodes.append(node_dict)
+                
         return result_nodes
         
     
