@@ -4,7 +4,7 @@ import React, { useRef, Component } from 'react'
 
 import {
     Button, Typography, TextField, Box, Stack, Tabs, Tab, Paper, Pagination, Container,
-    List, ListItem, ListItemText, Tooltip, IconButton, Divider
+    List, ListItem, ListItemText, Tooltip, IconButton, Divider, LinearProgress
 } from '@mui/material';
 
 import CloudIcon from '@mui/icons-material/Cloud';
@@ -25,10 +25,11 @@ import './homepage.css'
 
 
 class JobInProgress {
-    constructor(task_id, task_type, completed) {
+    constructor(task_id, task_type, completed, progress) {
         this.task_id = task_id
         this.task_type = task_type
         this.completed = completed;
+        this.progress = progress || 0;
     }
     setComplete() {
         this.completed = true;
@@ -133,27 +134,40 @@ export function Homepage(props) {
 
             // create a new job that the user can interact with that is only marked as completed when the underlying jobs to transcribe all the images are complete
             const displayedJobTaskId = `ImageRank ${numJobsCreated}`
-            let displayedJob = new JobInProgress(displayedJobTaskId, service, false)
+            let displayedJob = new JobInProgress(displayedJobTaskId, service, false, 0);
             setNumJobsCreated((i) => i + 1)
 
             this.putJobOnDisplayedQueue(displayedJob)
-
             let response = await HttpService.image_transcribe_service(data);
             let task_ids = response.task_id_list
 
             // create hidden jobs that are not visible to the user
             let hidden_jobs = task_ids.map((task_id) => new JobInProgress(task_id, service, false))
+            console.log(hidden_jobs)
             let job_results = hidden_jobs.map(job => this.getJobResult(job))
+            console.log(job_results)
 
             let values = await Promise.all(job_results)
+            console.log(values)
+            if (values.length !== data.length) {
+                throw Error('returned result of job has mismatching length')
+            }
             displayedJob.setComplete()
-            values = values.map(i => i.result).join(' | ')
+            values = values.map((i, index) => `${i.result} ${index}`).join('|') // add a value to the end of the string to make t
+
+            // use the sentence extraction pagerank method to give each image a score
+            let node_ranking_response = await HttpService.image_rank_w_sentences_service(values);
+            let node_ranking_job = new JobInProgress(node_ranking_response.task_id, service, false)
+            let node_ranking_job_result = await this.getJobResult(node_ranking_job)
+            let node_graph = node_ranking_job_result.result
+
+            console.log(node_graph)
 
 
-            let graph = await createGraphStructureFromImageData(data);
+            let graph = await createGraphStructureFromImageData(data, node_graph);
 
             console.log(graph)
-            this.setResultsOfCompletedJob(displayedJobTaskId, values, null, graph)
+            this.setResultsOfCompletedJob(displayedJobTaskId, '', null, graph)
         }
 
         static async createNewTextRankJob(data) {
@@ -189,12 +203,15 @@ export function Homepage(props) {
                 obj['name'] = obj.name.slice(0, 10)
                 resultModified.push(obj)
             }
-            console.log(resultModified)
+
+            if (resultModified.length > 300) {
+                resultModified = resultModified.slice(0, 300)
+            }
             let graphData = createGraphStructureFromTextRankData(resultModified);
 
 
-            let filteredResultData = resultData.filter(i => i.score > 1).map(i => i.name)
-            let displayedOutputText = filteredResultData.join(', ')
+            let filteredResultData = resultData.filter(i => i.score > 1).map(i => i.tooltip)
+            let displayedOutputText = filteredResultData.join('\n')
             this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
         }
 
@@ -237,7 +254,6 @@ export function Homepage(props) {
         static setResultsOfCompletedJob = (task_id, text, imageURL, graph) => {
             if (jobsCreated.filter((job) => job.task_id === task_id)) {
                 let displayData = new JobDisplayedData(task_id, text, imageURL, graph);
-                console.log(displayData)
                 setCompletedJobToResultMap(new Map(completedJobToResultMap.set(task_id, displayData)))
             } else {
                 console.warn(`tried to set the results of task_id ${task_id}} but that job was never created`)
@@ -510,6 +526,10 @@ export function Homepage(props) {
                     <Typography textAlign='center'>task_type: {selectedJob.task_type}</Typography>
                     <Typography textAlign='center'>completed: {selectedJob.completed.toString()}</Typography>
 
+                    <Box sx={{ width: '100%' }}>
+                        {/* <LinearProgress variant="determinate" value={selectedJob.progress} /> */}
+                    </Box>
+
                     <Stack direction="row" justifyContent="flex-end" spacing={2} mt={5}>
                         <Button variant="outlined" onClick={JobHandler.displaySelectedJobResult}>View Job Result</Button>
                     </Stack>
@@ -595,12 +615,14 @@ function createGraphStructureFromTextRankData(data) {
     let resultObj = { 'nodes': [], 'edges': [] }
 
     let edgeMap = new Map()
+    let meanScore = data.reduce((sum, i) => sum + parseFloat(i.score), 0) / data.length;
     data.forEach((i) => {
+
         let node = {
             id: `${i.id}`,
             label: `${i.name.slice(0, 30)}`,
             score: `${i.score}`,
-            size: `${i.score}`,
+            size: `${((i.score / meanScore) + 2) * 5}`,
             tooltip: `${i.tooltip}`
         }
         i?.connected.forEach(other_id => edgeMap.set(i.id, other_id))
@@ -614,25 +636,39 @@ function createGraphStructureFromTextRankData(data) {
         }
         resultObj['edges'].push(edge)
     })
-    console.log(resultObj)
     return resultObj
 
 
 }
 
-async function createGraphStructureFromImageData(fileArray) {
+// takes an array of files and a graph structure to create a antv G6 graph structure
+async function createGraphStructureFromImageData(fileArray, nodeGraph) {
     let resultObj = { 'nodes': [], 'edges': [] }
 
+    console.log(fileArray)
+    console.log(nodeGraph)
+
+    if (fileArray.length !== nodeGraph.length) {
+        console.log(fileArray)
+        console.log(nodeGraph)
+        throw Error('mismatch in the lengths of the array of images and the corresponding array of nodes that is the result of the images passed through pagerank')
+    }
+
+    // create nodes
     fileArray.forEach((file, index) => {
         let url = URL.createObjectURL(file);
+        let node = nodeGraph[index];
+        console.log(node)
 
         let newNode = {
-            'id': file.name,
-            'label': file.name,
+            'id': `${node.id}`,
+            'tooltip': file.name,
+            'transcription': node.name,
+            'score': `${node.score}`,
+            'size': node.score,
             'labelCfg': {
                 positions: 'bottom',
                 offset: 10,
-
             },
             'icon': {
                 show: true,
@@ -644,7 +680,19 @@ async function createGraphStructureFromImageData(fileArray) {
         resultObj['nodes'].push(newNode);
     })
 
+    // create edges
+    nodeGraph.forEach((node, index) => {
+        let connectedIds = node.connected;
+        connectedIds.forEach((otherId) => {
+            let newEdge = {
+                'source': `${node.id}`,
+                'target': `${otherId}`
+            }
+            resultObj['edges'].push(newEdge);
 
+        })
+
+    })
     return resultObj;
 }
 
@@ -659,12 +707,13 @@ function NetworkGraph2({ data }) {
         getContent(e) {
             const outDiv = document.createElement('div');
             outDiv.style.width = '180px';
-            let v = e.item.getModel().tooltip;
-            if (v === 'undefined') { // the thing is defined as a string..
-                v = e.item.getModel().label
+            let tooltip_value = e.item.getModel().tooltip;
+            if (tooltip_value === 'undefined') { // they set undefined as a string 
+                tooltip_value = e.item.getModel().label
             }
-            let g = e.item.getModel().score || ''
-            outDiv.innerHTML = `<p>${v}</p><br><p>score: ${g}</p>`
+            let score_value = e.item.getModel().score || ''
+            let transcription_value = e.item.getModel().transcription || ''
+            outDiv.innerHTML = `<p>${tooltip_value} ${transcription_value}</p><br><p>score: ${score_value}</p>`
             return outDiv
         },
         itemTypes: ['node']
@@ -677,17 +726,29 @@ function NetworkGraph2({ data }) {
                 width: 800,
                 height: 600,
                 defaultNode: {
+                    style: {
+                        lineWidth: 0.1,
+                        strokeOpacity: 0.5,
+                    }
                 },
                 defaultEdge: {
                     // type: 'polyline',
+                    style: {
+                        lineWidth: 1,
+                        strokeOpacity: 0.5,
+                    }
                 },
                 modes: {
                     default: ['drag-canvas', 'zoom-canvas', 'drag-node',],
                 },
                 layout: {
-                    type: 'force',
+                    // type: 'force',
+                    // preventOverlap: true,
+                    // linkDistance: 100,
+                    // nodeStrength: d => d.score,
+                    type: 'radial',
                     preventOverlap: true,
-                    linkDistance: 10
+                    nodeSize: 100,
 
                 },
                 plugins: [tooltip], // Use Tooltip plugin
