@@ -17,7 +17,6 @@ services:
   web:
     build:
       context: ./fastapi-server
-#    image: shafiq98/text_rank_server:1
     hostname: web
     restart: on-failure
     ports:
@@ -25,14 +24,13 @@ services:
     depends_on:
       rabbit:
         condition: service_healthy
-      cas1:
-        condition: service_healthy
+      # cas1:
+      #   condition: service_healthy
     links:
       - rabbit
   worker:
     build:
       context: ./cloud-worker
-#    image: shafiq98/text_rank_worker:1
     deploy:
       replicas: 1
     links:
@@ -40,22 +38,22 @@ services:
     depends_on:
       rabbit:
         condition: service_healthy
-      cas1:
-        condition: service_healthy
-  cas1:
-    container_name: cas1
-    image: cassandra:latest
-    healthcheck:
-      test: [ "CMD-SHELL", "[ $$(nodetool statusgossip) = running ]" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    volumes:
-      - /Development/PetProjects/CassandraTut/data/node1:/var/lib/cassandra/data
-    ports:
-      - 9042:9042
-    environment:
-      - CASSANDRA_START_RPC=true
-      - CASSANDRA_CLUSTER_NAME=MyCluster
-      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
-      - CASSANDRA_DC=datacenter1
+      # cas1:
+      #   condition: service_healthy
+  # cas1:
+  #   container_name: cas1
+  #   image: cassandra:latest
+  #   healthcheck:
+  #     test: [ "CMD-SHELL", "[ $$(nodetool statusgossip) = running ]" ]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #   volumes:
+  #     - /Development/PetProjects/CassandraTut/data/node1:/var/lib/cassandra/data
+  #   ports:
+  #     - 9042:9042
+  #   environment:
+  #     - CASSANDRA_START_RPC=true
+  #     - CASSANDRA_CLUSTER_NAME=MyCluster
+  #     - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+  #     - CASSANDRA_DC=datacenter1
