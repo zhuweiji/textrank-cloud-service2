@@ -27,7 +27,8 @@ class TaskType(Enum):
     KEYWORD_EXTRACTION = 'KEYWORD_EXTRACTION'
     IMAGE_TRANSCRIPTION = 'IMAGE_TRANSCRIPTION'
     SENTENCE_EXTRACTION = 'SENTENCE_EXTRACTION'
-    IMAGE_RANK          = 'IMAGE_RANK'
+    # IMAGE_RANK          = 'IMAGE_RANK'
+    SENTENCE_EXTRACTION_LIST = 'SENTENCE_EXTRACTION_LIST'
     
     
 @dataclass
@@ -79,7 +80,8 @@ class JobProcessor:
     async def create_image_rank_w_sentences_job(cls, request_body: Image_Rank_with_Sentences):
         request_text = request_body.delimited_text
         job = JobSpecification(
-            task_type=TaskType.IMAGE_RANK,
+            # task_type=TaskType.IMAGE_RANK,
+            task_type=TaskType.SENTENCE_EXTRACTION_LIST,
             data=request_text,
             )
         
