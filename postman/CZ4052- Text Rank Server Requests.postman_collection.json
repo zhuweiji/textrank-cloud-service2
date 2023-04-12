@@ -107,7 +107,8 @@
 							"script": {
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);\r",
-									"postman.setEnvironmentVariable(\"JOB_ID\", jsonData.job_created);"
+									"// postman.setEnvironmentVariable(\"JOB_ID\", jsonData.task_id);\r",
+									"pm.environment.set(\"JOB_ID\", jsonData.task_id);"
 								],
 								"type": "text/javascript"
 							}
@@ -118,7 +119,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"text\" : \"Qui irure nisi et veniam eu aute ex culpa enim ea ad amet esse.\"\r\n}",
+							"raw": "{\r\n    \"text\" : {{BEE_SCRIPT}}\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -168,6 +169,47 @@
 									"key": "task_id",
 									"value": "{{JOB_ID}}"
 								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Image Transcribe Request",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);\r",
+									"// postman.setEnvironmentVariable(\"JOB_ID\", jsonData.task_id);\r",
+									"pm.environment.set(\"JOB_ID\", jsonData.task_id_list[0]);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "images",
+									"type": "file",
+									"src": "/C:/Users/pcadmin/Documents/GitHub/textrank-cloud-service2/postman/resources/test_image2.jpg"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{LOCAL_BASE}}/api/image_transcribe",
+							"host": [
+								"{{LOCAL_BASE}}"
+							],
+							"path": [
+								"api",
+								"image_transcribe"
 							]
 						}
 					},
