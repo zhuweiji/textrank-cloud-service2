@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 class RabbitMQHandler:
     @classmethod
     async def listen(cls, queue_name:str , on_message_handler: Union[Callable, Coroutine, None]=None) -> None:
-        connection = await aio_pika.connect(RABBITMQ_CONNECTION_URL)
+        connection = await aio_pika.connect(RABBITMQ_CONNECTION_URL, timeout=5)
 
         if on_message_handler:
             on_message_handler = cls.wrap_message_handler(on_message_handler)

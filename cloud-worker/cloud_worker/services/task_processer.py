@@ -17,7 +17,8 @@ class TaskType(Enum):
     KEYWORD_EXTRACTION  = 'KEYWORD_EXTRACTION'
     IMAGE_TRANSCRIPTION = 'IMAGE_TRANSCRIPTION'
     SENTENCE_EXTRACTION = 'SENTENCE_EXTRACTION'
-    IMAGE_RANK          = 'IMAGE_RANK'
+    SENTENCE_EXTRACTION_LIST = 'SENTENCE_EXTRACTION_LIST'
+    
 
 class TaskProcesor:
     work_queue_provider = RabbitMQHandler
@@ -66,14 +67,15 @@ class TaskProcesor:
                                           {'task_type': TaskType.SENTENCE_EXTRACTION.value,
                                            'task_id':task_id,
                                            'pickled': True})
-        elif task_type == TaskType.IMAGE_RANK.value:
+            
+        elif task_type == TaskType.SENTENCE_EXTRACTION_LIST.value:
             data = message.body.decode()
             data = data.split('|')
             result = cls.job_handler.sentence_extraction__undirected(data)
             encoded_data = pickle.dumps(result)
             
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, encoded_data, 
-                                          {'task_type': TaskType.SENTENCE_EXTRACTION.value,
+                                        {'task_type': TaskType.SENTENCE_EXTRACTION_LIST.value,
                                            'task_id':task_id,
                                            'pickled': True})
             
@@ -88,5 +90,10 @@ class TaskProcesor:
             
     @classmethod
     async def listen_for_incoming_tasks(cls):
-        await cls.work_queue_provider.listen(RABBITMQ_JOB_QUEUE_NAME, on_message_handler=TaskProcesor.process_task)
+        try:
+            await cls.work_queue_provider.listen(RABBITMQ_JOB_QUEUE_NAME, on_message_handler=TaskProcesor.process_task)
+        except Exception:
+            log.exception('unable to connect to work queue')
+            exit(-1)
+            
     
