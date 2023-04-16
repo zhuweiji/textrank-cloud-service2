@@ -3,6 +3,8 @@ services:
   rabbit:
     hostname: rabbit
     image: rabbitmq:3-management
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/conf.d/rabbitmq.conf # add rabbitmq configuration file
     environment:
       - RABBITMQ_DEFAULT_USER=guest
       - RABBITMQ_DEFAULT_PASS=guest
@@ -26,13 +28,13 @@ services:
         condition: service_healthy
     links:
       - rabbit
-#  worker:
-#    build:
-#      context: ./cloud-worker
-#    deploy:
-#      replicas: 1
-#    links:
-#      - rabbit
-#    depends_on:
-#      rabbit:
-#        condition: service_healthy
+  # worker:
+  #   build:
+  #     context: ./cloud-worker
+  #   deploy:
+  #     replicas: 1
+  #   links:
+  #     - rabbit
+  #   depends_on:
+  #     rabbit:
+  #       condition: service_healthy
