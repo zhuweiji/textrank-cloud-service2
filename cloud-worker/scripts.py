@@ -17,11 +17,17 @@ def test():
     parser = argparse.ArgumentParser(
         prog='Run pytest in poetry shell',
     )
-    parser.add_argument('--names', help="runs pytest with the -k flag, which only run tests which match the given substring expression", default='')
+    parser.add_argument('--regex', help="runs pytest with the -k flag, which only run tests which match the given substring expression", default='')
+    parser.add_argument('--log', help="sets the log level", default='warning')
     
     args = parser.parse_args()
     
-    command = 'pytest' if not args.names else f'pytest -k {args.names}'
+    command = 'pytest '
+    if args.log:
+        command += f'-o log_cli=true -o log_cli_level={args.log} '
+    if args.regex:
+        command += f'-k {args.regex} '
+    log.info(command)
     run_process(command)
 
 def healthcheck():

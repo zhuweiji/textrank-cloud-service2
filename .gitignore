@@ -155,3 +155,4 @@ dmypy.json
 /.idea/textrank-cloud-service2.iml
 /.idea/vcs.xml
 /fastapi-server/.idea/vcs.xml
+textrank-cloud-service2.code-workspace

@@ -9,18 +9,25 @@ from pathlib import Path
 logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.INFO)
 log = logging.getLogger(__name__)
 
+
 def start():
-    run_process('uvicorn fastapi_server.main:app --host 0.0.0.0 --port 8080 --reload')
+    run_process('py -m cloud_worker.main')
     
 def test():
     parser = argparse.ArgumentParser(
         prog='Run pytest in poetry shell',
     )
-    parser.add_argument('--names', help="runs pytest with the -k flag, which only run tests which match the given substring expression", default='')
+    parser.add_argument('--regex', help="runs pytest with the -k flag, which only run tests which match the given substring expression", default='')
+    parser.add_argument('--log', help="sets the log level", default='warning')
     
     args = parser.parse_args()
     
-    command = 'pytest' if not args.names else f'pytest -k {args.names}'
+    command = 'pytest '
+    if args.log:
+        command += f'-o log_cli=true -o log_cli_level={args.log} '
+    if args.regex:
+        command += f'-k {args.regex} '
+    log.info(command)
     run_process(command)
 
 def healthcheck():
@@ -71,7 +78,6 @@ def add_pre_commit_hooks():
         
     new_precommit_file.write_text(hook_contents)
     log.info('pre-commit file created successfully')
-    
 
 @contextlib.contextmanager
 def temporary_filename(suffix=None):
@@ -101,11 +107,8 @@ def run_process(commands: str):
     """run a process
     use to execute commands such as - python -m pip install"""
     try:
-        log.info(commands)
         subprocess.run(commands.split())
     except KeyboardInterrupt:
         log.info('Keyboard Interrupt: Terminating Program')
     except Exception:
         log.exception(commands)
-        
-        
