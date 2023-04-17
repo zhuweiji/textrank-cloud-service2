@@ -28,13 +28,13 @@ services:
         condition: service_healthy
     links:
       - rabbit
-  # worker:
-  #   build:
-  #     context: ./cloud-worker
-  #   deploy:
-  #     replicas: 1
-  #   links:
-  #     - rabbit
-  #   depends_on:
-  #     rabbit:
-  #       condition: service_healthy
+#  worker:
+#   build:
+#     context: ./cloud-worker
+#   deploy:
+#     replicas: 1
+#   links:
+#     - rabbit
+#   depends_on:
+#     rabbit:
+#       condition: service_healthy

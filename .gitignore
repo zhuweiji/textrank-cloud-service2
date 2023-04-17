@@ -157,3 +157,5 @@ dmypy.json
 /.idea/vcs.xml
 /fastapi-server/.idea/vcs.xml
 textrank-cloud-service2.code-workspace
+/cloud-worker/cache/
+/cloud-worker/cloud_worker/cache/
