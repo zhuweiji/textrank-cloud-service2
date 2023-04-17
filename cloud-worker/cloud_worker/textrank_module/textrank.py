@@ -1,6 +1,7 @@
 import logging
+import re
 from dataclasses import asdict, dataclass
-from typing import List, Union
+from typing import Dict, List, Set, Union
 
 import spacy
 from spacy.tokens import Doc, Span
@@ -69,10 +70,16 @@ class TextRank(metaclass=Singleton):
     
     def keyword_extraction__undirected(self, string:str,
                                        iterations:int=100,
-                                       pos_tags:List[str] = ['NOUN','VERB', 'ADJ','PROPN','ADV'],
+                                       number_to_keep: int=0,
+                                       pos_tags:List[str] = ['NOUN','ADJ', 
+                                                             'PROPN'
+                                                            #  'VERB','ADV'
+                                                             ],
                                        ):
-        log.warning([(i.text,i.pos_) for i in self.nlp(string)])
         
+        number_to_keep = number_to_keep or len(string) // 3 # as defined in the paper
+        
+        log.debug([(i.text, i.pos_) for i in self.nlp(string)])
         filtered_text = _decode_unicode(string)
         filtered_text = _remove_non_ascii(filtered_text)
         filtered_text = ' '.join([i.text for i in self.nlp(string) if i.pos_ in pos_tags])
@@ -80,12 +87,13 @@ class TextRank(metaclass=Singleton):
         filtered_text = _simple_tokenize(filtered_text)
         if not any(filtered_text): return []
         
-        
         nodes = self._generate_nodes_from_cooccurence(filtered_text)
         result = PageRank.calculate__undirected_no_optimise(nodes, iterations=iterations)
         
         sorted_result = sorted(result.items(), key=lambda x:x[1], reverse=True)
-        result_nodes = []
+        sorted_result = sorted_result[:number_to_keep]
+        
+        result_nodes: List[Dict[str,float]] = []
         
         for node,score in sorted_result:
             # convert node to dict for serialization
@@ -133,22 +141,72 @@ class TextRank(metaclass=Singleton):
                 
         return list(node_dict.values())
         
-    # @classmethod
-    # def collapse_keywords(cls, keywords:List[str], text:str):
-    # combine keywords that are next to each other
-    #     keyphrases = set([i] for i in keywords)
+    def regenerate_keyphrases(self, keyword_dict:Dict[str, int], original_text:str):
+        """combine keywords that are next to each other"""
+        keywords = set(i.lower() for i in keyword_dict)
+        keyword_dict_copy = {k.lower():v for k,v in keyword_dict.items()}
         
-    #     tokenized_text = cls.tokenize(text)
-    #     for index,token in enumerate(tokenized_text):
-    #         if any(token in l for l in keyphrases) and index<len(tokenized_text)-1:
-    #             next_token = tokenized_text[index+1]
-    #             if any(next_token in l for l in keyphrases):
+        original_text = original_text.lower()
+        split_text = self._tokenize(original_text)
+        
+        results:Dict[str, int] = {}
+        keywords_used = set()
+        
+        # find keyphrases in the text by checking for contiguous keywords
+        index = 0
+        while index < len(split_text):
+            token = split_text[index]
+            
+            if token not in keywords: 
+                # the current word is not part of a keyphrase
+                index+=1
+                continue 
+            
+            keywords_used.add(token)
+            max_score = keyword_dict_copy[token]
+            keyphrase = [token]
+            increment = 1
+            
+            while True:
+                next_token = split_text[index+increment] if index+increment <= len(split_text)-1 else ''
+                cleaned_next_token = re.sub(r'[^a-zA-Z0-9]', '', next_token)
+                
+                if not cleaned_next_token or cleaned_next_token not in keywords: # terminating condition - add phrase to results
+                    results[' '.join(keyphrase)] = max_score
+                    break
+                
+                score = keyword_dict_copy.get(cleaned_next_token) or keyword_dict_copy.get(next_token) or -1
+                max_score = max(score, max_score)
+                
+                keywords_used.add(cleaned_next_token)
+                keyphrase.append(cleaned_next_token)
+                
+                if (any(i in next_token for i in [',','.'])): # if the word has either comma or fullstop, then end the keyphrase
+                    results[' '.join(keyphrase)] = max_score
+                    break
+                
+                increment += 1
+            
+            index+=increment
+            
+        for i in keywords - keywords_used:
+            results[i] = keyword_dict_copy[i] # add keywords that no keyphrases were found for
+        
+        # split phrases where there is a comma or fullstop in the text
+        
+        return results
+            
+            
+            
+            
+            # if any(token in l for l in keywords) and index<len(tokenized_text)-1:
+            #     next_token = tokenized_text[index+1]
+            #     if any(next_token in l for l in keywords):
+            #         pass
     
-    @staticmethod
-    def _tokenize(string:str):
+    def _tokenize(self, string:str):
         """tokenize text"""
-        # honestly there are more correct ways to tokenize strings (but this is sufficient for us)
-        return string.split()
+        return _simple_tokenize(string)
     
     def _find_cooccurent(self, tokens:List[str], index, cooccurence_value:int=2):
         """returns the previous-n and next-n tokens 

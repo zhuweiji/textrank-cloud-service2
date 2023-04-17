@@ -28,4 +28,6 @@ def _remove_non_core_words(docs: List[Doc]):
     return result_sentences
 
 def _simple_tokenize(text:str):
-    return text.split(' ')
+    text = text.replace('\n',' ')
+    
+    return [i for i in text.split(' ') if i]

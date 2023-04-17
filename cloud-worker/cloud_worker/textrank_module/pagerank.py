@@ -121,23 +121,24 @@ class PageRank:
         
     @classmethod
     def calculate__directed_no_optimise(cls, nodes: List[Directed_Node], iterations:int = 10):
-        """Calculate scores for nodes given a list of nodes which are connected via one-way connections (a directed graph)"""
-        node_scores = {i:1 for i in nodes}
+        raise NotImplementedError
+    #     """Calculate scores for nodes given a list of nodes which are connected via one-way connections (a directed graph)"""
+    #     node_scores = {i:1 for i in nodes}
         
-        complete = False
-        current_total_score = None
+    #     complete = False
+    #     current_total_score = None
         
-        while not complete:
-            current_total_score = 0
-            for node in nodes:
-                node_score =  sum(i.weight for i in node.in_set)
-                node_scores[node] = node_score
+    #     while not complete:
+    #         current_total_score = 0
+    #         for node in nodes:
+    #             node_score =  sum(i.weight for i in node.in_set)
+    #             node_scores[node] = node_score
                 
-                current_total_score += node_score
+    #             current_total_score += node_score
             
-            iterations -= 1
-            if iterations <= 1: complete = True
+    #         iterations -= 1
+    #         if iterations <= 1: complete = True
             
-        log.debug(f'iterations={iterations}')        
-        return node_scores
+    #     log.debug(f'iterations={iterations}')        
+    #     return node_scores
                 
