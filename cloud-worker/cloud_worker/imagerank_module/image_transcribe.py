@@ -9,12 +9,12 @@ from PIL import Image
 log = logging.getLogger(__name__)
 
 class ImageInterrogator:
-    interrogator = None
+    interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
     
-    @classmethod
-    def load_model(cls):
-        if not cls.interrogator:
-            cls.interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
+    # @classmethod
+    # def load_model(cls):
+    #     if not cls.interrogator:
+    #         cls.interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
     
     @classmethod
     def convert_image_to_text(cls, fileobj: Union[str, Path, bytes, BytesIO]):
