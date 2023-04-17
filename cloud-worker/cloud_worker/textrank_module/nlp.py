@@ -26,4 +26,6 @@ def _remove_non_core_words(docs: List[Doc]):
             " ".join([i.text for i in doc if i.pos_ not in included_tags])
         )
     return result_sentences
-        
+
+def _simple_tokenize(text:str):
+    return text.split(' ')

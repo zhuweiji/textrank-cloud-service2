@@ -10,6 +10,7 @@ from .nlp import (
     _remove_non_ascii,
     _remove_non_core_words,
     _remove_stopwords,
+    _simple_tokenize,
 )
 from .pagerank import Directed_Edge, Directed_Node, PageRank, Undirected_Node
 
@@ -50,7 +51,6 @@ class TextRank(metaclass=Singleton):
             
         else: raise ValueError( f'expected str, instead got {type(text)}')
         
-        
         nodes = self._generate_nodes_from_similarity(nodes)
         
         result = PageRank.calculate__undirected_no_optimise(nodes, iterations=iterations)
@@ -67,9 +67,21 @@ class TextRank(metaclass=Singleton):
         return result_nodes
         
     
-    def keyword_extraction__undirected(self, string:str, iterations:int=100, remove_stopwords:bool=True):
-        if remove_stopwords: string = _remove_stopwords(string)
-        nodes = self._generate_nodes_from_cooccurence(string)
+    def keyword_extraction__undirected(self, string:str,
+                                       iterations:int=100,
+                                       pos_tags:List[str] = ['NOUN','VERB', 'ADJ','PROPN','ADV'],
+                                       ):
+        log.warning([(i.text,i.pos_) for i in self.nlp(string)])
+        
+        filtered_text = _decode_unicode(string)
+        filtered_text = _remove_non_ascii(filtered_text)
+        filtered_text = ' '.join([i.text for i in self.nlp(string) if i.pos_ in pos_tags])
+        filtered_text = _remove_stopwords(filtered_text)
+        filtered_text = _simple_tokenize(filtered_text)
+        if not any(filtered_text): return []
+        
+        
+        nodes = self._generate_nodes_from_cooccurence(filtered_text)
         result = PageRank.calculate__undirected_no_optimise(nodes, iterations=iterations)
         
         sorted_result = sorted(result.items(), key=lambda x:x[1], reverse=True)
@@ -100,10 +112,8 @@ class TextRank(metaclass=Singleton):
                 i_node.to(j_node, score)
         return list(node_dict.values())
     
-    def _generate_nodes_from_cooccurence(self, string: str) -> List[Undirected_Node]:
+    def _generate_nodes_from_cooccurence(self, tokens: List[str]) -> List[Undirected_Node]:
         """given a string, use coccurence to create an undirected graph where nodes are connected if they are coocurrent"""
-        tokens = self._tokenize(string)
-        # node_dict = keydefaultdict(default_factory=lambda token_orth: Undirected_Node(name=token_orth))
         node_dict = {}
         
         # helper function to get a Node from the dict or generate a new Node if one doesn't exist
