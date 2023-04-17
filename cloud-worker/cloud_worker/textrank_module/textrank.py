@@ -75,10 +75,11 @@ class TextRank(metaclass=Singleton):
                                                              'PROPN'
                                                             #  'VERB','ADV'
                                                              ],
+                                       damping_factor=0.1,
+                                       cooccurence_value=2
                                        ):
         
         number_to_keep = number_to_keep or len(string) // 3 # as defined in the paper
-        
         log.debug([(i.text, i.pos_) for i in self.nlp(string)])
         filtered_text = _decode_unicode(string)
         filtered_text = _remove_non_ascii(filtered_text)
@@ -87,8 +88,8 @@ class TextRank(metaclass=Singleton):
         filtered_text = _simple_tokenize(filtered_text)
         if not any(filtered_text): return []
         
-        nodes = self._generate_nodes_from_cooccurence(filtered_text)
-        result = PageRank.calculate__undirected_no_optimise(nodes, iterations=iterations)
+        nodes = self._generate_nodes_from_cooccurence(filtered_text, cooccurence_value)
+        result = PageRank.calculate__undirected_no_optimise(nodes, iterations=iterations, random_surf_prob=damping_factor)
         
         sorted_result = sorted(result.items(), key=lambda x:x[1], reverse=True)
         sorted_result = sorted_result[:number_to_keep]
@@ -120,7 +121,8 @@ class TextRank(metaclass=Singleton):
                 i_node.to(j_node, score)
         return list(node_dict.values())
     
-    def _generate_nodes_from_cooccurence(self, tokens: List[str]) -> List[Undirected_Node]:
+    def _generate_nodes_from_cooccurence(self, tokens: List[str],
+                                         cooccurence_value=2) -> List[Undirected_Node]:
         """given a string, use coccurence to create an undirected graph where nodes are connected if they are coocurrent"""
         node_dict = {}
         
@@ -134,7 +136,7 @@ class TextRank(metaclass=Singleton):
         
         for index,token in enumerate(tokens):
             node = get_from_node_dict(token)
-            previous, next = self._find_cooccurent(tokens, index)
+            previous, next = self._find_cooccurent(tokens, index, cooccurence_value=cooccurence_value)
             nodes = [get_from_node_dict(token) for token in (*previous, *next)]
             for other_node in nodes:
                 node.to(other_node)
@@ -144,10 +146,11 @@ class TextRank(metaclass=Singleton):
     def regenerate_keyphrases(self, keyword_dict:Dict[str, int], original_text:str):
         """combine keywords that are next to each other"""
         keywords = set(i.lower() for i in keyword_dict)
+        log.warning(keyword_dict)
         keyword_dict_copy = {k.lower():v for k,v in keyword_dict.items()}
         
         original_text = original_text.lower()
-        split_text = self._tokenize(original_text)
+        split_text = original_text.replace('\n',', ').split(' ')
         
         results:Dict[str, int] = {}
         keywords_used = set()
@@ -181,7 +184,7 @@ class TextRank(metaclass=Singleton):
                 keywords_used.add(cleaned_next_token)
                 keyphrase.append(cleaned_next_token)
                 
-                if (any(i in next_token for i in [',','.'])): # if the word has either comma or fullstop, then end the keyphrase
+                if (any(i in next_token for i in [',', '.', '\n'])): # if the word has either comma or fullstop, then end the keyphrase
                     results[' '.join(keyphrase)] = max_score
                     break
                 
@@ -189,10 +192,9 @@ class TextRank(metaclass=Singleton):
             
             index+=increment
             
-        for i in keywords - keywords_used:
-            results[i] = keyword_dict_copy[i] # add keywords that no keyphrases were found for
+        results = {k:v for k,v in results.items() if len(k.split(' ')) > 1}
         
-        # split phrases where there is a comma or fullstop in the text
+        log.warning(results)
         
         return results
             

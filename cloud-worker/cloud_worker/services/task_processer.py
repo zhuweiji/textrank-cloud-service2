@@ -38,7 +38,18 @@ class TaskProcesor:
         if task_type == TaskType.KEYWORD_EXTRACTION.value:
             data = message.body.decode() if not pickled else pickle.loads(message.body)
             
-            result =  cls.job_handler.keyword_extraction__undirected(data)
+            keyword_extraction_result =  cls.job_handler.keyword_extraction__undirected(data)
+            
+            only_text_and_score:Dict[str, int] = {i['name']: i['score'] for i in keyword_extraction_result} # type: ignore
+            keyphrase_result = cls.job_handler.regenerate_keyphrases(only_text_and_score, data)
+            
+            keyphrase_result = sorted(keyphrase_result.items(), key=lambda x: x[1], reverse=True)
+            
+            result = {
+                'keyword_nodes': keyword_extraction_result,
+                'keyphrase_and_scores': keyphrase_result,
+            }
+            
             encoded_data = pickle.dumps(result)
             
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, encoded_data, 
@@ -51,17 +62,17 @@ class TaskProcesor:
             codec = other_info['codec']
             image_obj = io.BytesIO(image_data)
             
-            result = ImageInterrogator.convert_image_to_text(image_obj)
-            if not result:
+            keyword_extraction_result = ImageInterrogator.convert_image_to_text(image_obj)
+            if not keyword_extraction_result:
                 log.warning('No result from image transcription')
                 return
             
-            await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, result, {'task_type': TaskType.IMAGE_TRANSCRIPTION.value, 'task_id':task_id})
+            await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, keyword_extraction_result, {'task_type': TaskType.IMAGE_TRANSCRIPTION.value, 'task_id':task_id})
             
         elif task_type == TaskType.SENTENCE_EXTRACTION.value:
             data = message.body.decode()
-            result = cls.job_handler.sentence_extraction__undirected(data)
-            encoded_data = pickle.dumps(result)
+            keyword_extraction_result = cls.job_handler.sentence_extraction__undirected(data)
+            encoded_data = pickle.dumps(keyword_extraction_result)
             
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, encoded_data, 
                                           {'task_type': TaskType.SENTENCE_EXTRACTION.value,
@@ -71,8 +82,8 @@ class TaskProcesor:
         elif task_type == TaskType.SENTENCE_EXTRACTION_LIST.value:
             data = message.body.decode()
             data = data.split('|')
-            result = cls.job_handler.sentence_extraction__undirected(data)
-            encoded_data = pickle.dumps(result)
+            keyword_extraction_result = cls.job_handler.sentence_extraction__undirected(data)
+            encoded_data = pickle.dumps(keyword_extraction_result)
             
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, encoded_data, 
                                         {'task_type': TaskType.SENTENCE_EXTRACTION_LIST.value,

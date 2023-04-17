@@ -1,6 +1,7 @@
 vscode_workspace.code-workspace
 .idea/*
 .vscode/*
+cloud-worker/tests/data/
 
 # Default ignored files
 /shelf/
