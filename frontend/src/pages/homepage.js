@@ -180,10 +180,23 @@ export function Homepage(props) {
             let result = await this.getJobResult(job)
 
             let resultData = result.result
-            let graphData = createGraphStructureFromTextRankData(resultData);
+            let keyphraseAndScores = resultData.keyphrase_and_scores
+            let keywordNodes = resultData.keyword_nodes
 
-            let filteredResultData = resultData.filter(i => i.score > 1).map(i => i.name)
-            let displayedOutputText = filteredResultData.join(', ')
+            let keyphrasesOnly = keyphraseAndScores.map(i => i[0]).slice(0, 6)
+
+            let graphData = createGraphStructureFromTextRankData(keywordNodes);
+
+            let filteredResultData = keywordNodes.filter(i => i.score > 1).map(i => i.name).slice(0, 10)
+            let displayedOutputText = 'Key Phrases:\n------------------------------\n' +
+                keyphrasesOnly.join('\n') +
+                '\n\n=================================\n\nKeywords:\n------------------------------\n' +
+                filteredResultData.join(', ') +
+                '\n\n=================================\n\nOriginal Text:\n------------------------------\n' +
+                data
+
+
+
             this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
         }
 
