@@ -18,7 +18,7 @@ class ImageInterrogator:
     
     @classmethod
     def convert_image_to_text(cls, fileobj: Union[str, Path, bytes, BytesIO]):
-        cls.load_model()
+        # cls.load_model()
         
         try:
             image = Image.open(fileobj).convert('RGB')
