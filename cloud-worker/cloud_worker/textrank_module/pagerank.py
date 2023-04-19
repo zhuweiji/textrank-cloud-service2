@@ -6,6 +6,8 @@ from dataclasses import asdict, dataclass, field
 from itertools import count
 from typing import Any, List, Tuple, Union
 
+from numpy import transpose
+
 from cloud_worker.textrank_module.pagerank_wt import iterative_pr, noniterative_pr
 
 log = logging.getLogger(__name__)
@@ -58,7 +60,7 @@ class Undirected_Edge:
         return self.second if self.first == other_node else self.first
     
     def __hash__(self) -> int:
-        return hash(f"{self.first}-{self.second}")
+        return hash(f"{self.first}-{self.second}|{self.second}-{self.first}")
 
 
         
@@ -86,8 +88,13 @@ class PageRank:
                 else:
                     ans.append(row)
             return ans
+        log.warning(M)
+        M = normalization(M)
+        M = transpose(M).tolist()
+        log.warning(M)
         
-        return normalization(M)
+        return M
+    
         
                 
     
@@ -96,8 +103,9 @@ class PageRank:
         """Calculate scores for nodes given a list of nodes which are connected via directionless connection (a undirected graph)"""
         M = cls.convert_connected_nodes_to_matrix(nodes)
         log.warning(M)
-        scores = noniterative_pr(M, 1-random_surf_prob)
-        
+        scores = iterative_pr(M, 1-random_surf_prob, iterations)
+        log.warning([i/min(scores) for i in scores])
+        log.warning(scores)
         return {k:v for k,v in zip(nodes, scores)}
         # node_scores = {i:1.0 for i in nodes}
         

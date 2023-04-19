@@ -401,14 +401,10 @@ export function Homepage(props) {
             <TabPanel value={modelSelectionTab} index={2}>
                 <Typography pb={3} variant='h6'>Sentence Extraction</Typography>
                 <Typography>
-                    Amet amet ad mollit consectetur consectetur nulla Lorem adipisicing aute in labore.
+                    Use TextRank to surface the most import sentences most representative of the entire text.
                 </Typography>
                 <Typography>
-                    Cupidatat magna in mollit reprehenderit cillum eu elit exercitation cupidatat consequat officia elit duis.
-                    Do eiusmod irure labore id pariatur do et ea adipisicing reprehenderit.
-                </Typography>
-                <Typography pt={2}>
-                    Cillum sit cillum aute reprehenderit adipisicing eu nulla incididunt id.
+                    Use this to summarise research papers, news articles, or other blocks of text.
                 </Typography>
 
                 <Box mt={10}>
@@ -426,10 +422,9 @@ export function Homepage(props) {
 
 
             <TabPanel value={modelSelectionTab} index={3}>
-                <Typography pb={3} variant='h6'>Some Image Model</Typography>
+                <Typography pb={3} variant='h6'>Image Transcription</Typography>
                 <Typography >
-                    Cupidatat ad magna labore cillum non nulla anim do culpa velit ad qui incididunt.
-                    Sunt fugiat laborum eu enim minim deserunt ipsum non exercitation laboris proident elit.
+                    Transcribe your image as text, creating a summary of your image in textual format.
                 </Typography>
 
                 <Typography pt={5} fontWeight='bold'>

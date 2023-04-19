@@ -95,8 +95,9 @@ def iterative_pr(M: list[list[Union[int, float]]],
 
     num_of_pages = len(M[0])
     # first guess of the ranking of each page
-    x = [(1/num_of_pages) for i in range(num_of_pages)]
+    x =               [(1/num_of_pages) for i in range(num_of_pages)]
     random_jump_arr = [(1/num_of_pages) for i in range(num_of_pages)]
+    
     # print("Initial guess for x is \n", np.array(x))
 
     for i in range(NUM_OF_ITERATIONS):
@@ -112,15 +113,20 @@ def iterative_pr(M: list[list[Union[int, float]]],
             Mx[page] += random_jump_arr[page] * c2
 
         x = Mx
+        
+        log.warning(Mx)
         # print("After iteration number " + str(i)+":")
         # print("x is \n", np.array(x))
         # print()
 
     return x
 
-# M = [[0.5, 0.5, 0],
-#     [0.5, 0, 1],
-#     [0, 0.5, 0]]
+M = [[0.5, 0.5, 0],
+    [0.5, 0, 0],
+    [0, 0.5, 1]]
 
-# final_pr = iterative_pr(M, 1, 10)
+# M = [[0, 1, 0], [0.5, 0.0, 0.5], [0, 1, 0]]
+
+final_pr = iterative_pr(M, 0.8, 50)
 # print("Pagerank is \n", np.array(M))
+# print(final_pr)

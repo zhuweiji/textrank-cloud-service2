@@ -137,7 +137,13 @@ class TextRank(metaclass=Singleton):
         for index,token in enumerate(tokens):
             node = get_from_node_dict(token)
             previous, next = self._find_cooccurent(tokens, index, cooccurence_value=cooccurence_value)
+            # log.error(previous)
+            # log.error(next)
+            
             nodes = [get_from_node_dict(token) for token in (*previous, *next)]
+            # log.error(nodes)
+            # log.error('\n')
+            
             for other_node in nodes:
                 node.to(other_node)
                 

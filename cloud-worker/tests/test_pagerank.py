@@ -32,6 +32,20 @@ class TestPagerank:
         log.error(result)
         assert False
     
+    def test_lecture_example2(self):
+        node_a = Undirected_Node(name='A')
+        node_b = Undirected_Node(name='B')
+        node_c = Undirected_Node(name='C')
+        node_a.to(node_b)
+        node_c.to(node_b)
+        nodes = [node_a, node_b, node_c]
+        
+        log.warning(nodes)
+        result = PageRank.calculate__undirected_no_optimise(nodes)
+        
+        log.error(result)
+        assert False
+    
     def test_empty_graph(self):
         nodes = []
         result = PageRank.calculate__undirected_no_optimise(nodes)
