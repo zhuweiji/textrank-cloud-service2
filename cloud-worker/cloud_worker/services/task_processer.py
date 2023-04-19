@@ -4,9 +4,11 @@ import pickle
 from enum import Enum
 
 from aio_pika.abc import AbstractIncomingMessage
+
 from cloud_worker.constants import RABBITMQ_JOB_QUEUE_NAME, RABBITMQ_RESULT_QUEUE_NAME
 from cloud_worker.imagerank_module.image_transcribe import ImageInterrogator
 from cloud_worker.services.connection_handlers import RabbitMQHandler
+from cloud_worker.textrank_module.clustering import cluster_sentences
 from cloud_worker.textrank_module.textrank import TextRank
 
 log = logging.getLogger(__name__)
@@ -82,8 +84,20 @@ class TaskProcesor:
         elif task_type == TaskType.SENTENCE_EXTRACTION_LIST.value:
             data = message.body.decode()
             data = data.split('|')
+            
             keyword_extraction_result = cls.job_handler.sentence_extraction__undirected(data)
-            encoded_data = pickle.dumps(keyword_extraction_result)
+            
+            nodes = cls.job_handler._generate_nodes_from_similarity([cls.job_handler.nlp(i) for i in data])
+            for node in nodes:
+                node.id = node.id - len(keyword_extraction_result)
+            
+            clusters = cluster_sentences(nodes)
+            result = {}
+            result['keyword_extraction_result'] = keyword_extraction_result
+            result['clusters'] = clusters
+            
+            
+            encoded_data = pickle.dumps(result)
             
             await RabbitMQHandler.publish(RABBITMQ_RESULT_QUEUE_NAME, encoded_data, 
                                         {'task_type': TaskType.SENTENCE_EXTRACTION_LIST.value,

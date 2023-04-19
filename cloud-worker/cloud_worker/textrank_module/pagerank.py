@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class Undirected_Node:
-    id:         int = field(default_factory=count().__next__, init=False)
+    id:         int = field(default_factory=count().__next__)
     name:       str = ''
     connected:  set[Undirected_Edge] = field(default_factory=lambda: set(), repr=False)
     
@@ -88,10 +88,8 @@ class PageRank:
                 else:
                     ans.append(row)
             return ans
-        log.warning(M)
         M = normalization(M)
         M = transpose(M).tolist()
-        log.warning(M)
         
         return M
     
@@ -99,14 +97,11 @@ class PageRank:
                 
     
     @classmethod
-    def calculate__undirected_no_optimise(cls, nodes: List[Undirected_Node], iterations:int = 20, random_surf_prob:float=0.1, convergence_threshold=0.001):
+    def calculate__undirected_no_optimise(cls, nodes: List[Undirected_Node], iterations:int = 20, random_surf_prob:float=0.1, converge_val=0.001):
         """Calculate scores for nodes given a list of nodes which are connected via directionless connection (a undirected graph)"""
         M = cls.convert_connected_nodes_to_matrix(nodes)
-        log.warning(M)
-        scores = iterative_pr(M, 1-random_surf_prob, iterations)
-        log.warning([i/min(scores) for i in scores])
-        log.warning(scores)
-        return {k:v for k,v in zip(nodes, scores)}
+        scores = iterative_pr(M, c1=1-random_surf_prob, converge_val=converge_val)
+        return {k:v  for k,v in zip(nodes, scores)}
         # node_scores = {i:1.0 for i in nodes}
         
         # previous_total_score = None

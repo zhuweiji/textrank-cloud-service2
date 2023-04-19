@@ -2,7 +2,10 @@ import logging
 import unittest
 from typing import Dict, List
 
+import networkx as nx
+import numpy as np
 import pytest
+
 from cloud_worker.textrank_module.textrank import TextRank
 
 log = logging.getLogger(__name__)
@@ -25,6 +28,30 @@ large state space
    
 """
             
+
+class Test_TextRank_Sentence_Extraction:
+    sentence_extraction = TextRank().sentence_extraction__undirected
+    
+    def test_sample_text(self):
+        # input_text = "When talking about words with similar meaning, you often read about the distributional hypothesis in linguistics. This hypothesis states that words bearing a similar meaning will appear between similar word contexts. You could say “The box is on the shelf.”, but also “The box is under the shelf.” and still produce a meaningful sentence. On and under are interchangeable up to a certain extent."
+        # input_text = "When talking about words with similar meaning, you often read about the distributional hypothesis in linguistics. This hypothesis states that words bearing a similar meaning will appear between similar word contexts. You could say “The box is on the shelf.”, but also “The box is under the shelf.” and still produce a meaningful sentence. On and under are interchangeable up to a certain extent."
+        input_text = """Compatibility of systems of linear constraints over the set of natural numbers. Criteria of compatibility of a system of linear Diophantine equations, strict inequations, and nonstrict inequations are considered. Upper bounds for components of a minimal set of solutions and algorithms of construction of minimal generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for constructing a minimal supporting set of solutions can be used in solving all the considered types systems and systems of mixed types."""
+        
+
+        sents = [TextRank().nlp(i) for i in input_text.split('. ')]
+
+        nodes = TextRank()._generate_nodes_from_similarity(sents)
+        edge_75_percentile = np.percentile(
+            [[edge.weight] for node in nodes for edge in node.connected],
+            75)
+        log.warning(edge_75_percentile)
+        n = {node.id: [i.get_other(node).id for i in node.connected if i.weight > edge_75_percentile] for node in nodes}
+        log.warning(n)
+        g = nx.Graph(n)
+        log.warning([i for i in nx.connected_components(g)])
+        
+        # result = self.sentence_extraction(input_text)
+        assert False
 
 class Test_TextRank__Keyword_Extraction:
     keyword_extraction    = TextRank().keyword_extraction__undirected

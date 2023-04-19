@@ -76,13 +76,14 @@ def noniterative_pr(A: list[list[Union[int, float]]],
 ## Iterative version
 def iterative_pr(M: list[list[Union[int, float]]], 
                  c1: float, 
-                 NUM_OF_ITERATIONS: int) -> list:
+                 converge_val: float,
+                 ) -> list:
     '''
     Calculates the pagerank of a given node graph M (2d array of either int or float type).
     
     M:  2d array of either int or float type
     c1: probability of going back to a node in the same graph
-    NUM_OF_ITERATIONS: number of times the calculation will repeat for
+    converge_val:  difference between previous iteration and current iteration should not have a difference of more than this value, if not continue iterating
     returns: ranking of each node (in terms of its probability) after the final iteration.
 
     The inital guess for the importance of each node will be 1/(number of nodes in the graph).
@@ -98,9 +99,13 @@ def iterative_pr(M: list[list[Union[int, float]]],
     x =               [(1/num_of_pages) for i in range(num_of_pages)]
     random_jump_arr = [(1/num_of_pages) for i in range(num_of_pages)]
     
+    curr_converge = float("inf")
+    iterate_num = 1
+    
     # print("Initial guess for x is \n", np.array(x))
 
-    for i in range(NUM_OF_ITERATIONS):
+    # for i in range(NUM_OF_ITERATIONS):
+    while curr_converge >= converge_val:
         Mx = []
         for row in M:
             val = 0
@@ -111,10 +116,14 @@ def iterative_pr(M: list[list[Union[int, float]]],
         # Mx + random_prob
         for page in range(num_of_pages):
             Mx[page] += random_jump_arr[page] * c2
-
+            
+        # calculate convergence
+        curr_converge = 0
+        for word in range(len(x)):
+            curr_converge += abs(x[word] - Mx[word])
+            
         x = Mx
         
-        log.warning(Mx)
         # print("After iteration number " + str(i)+":")
         # print("x is \n", np.array(x))
         # print()
@@ -127,6 +136,6 @@ M = [[0.5, 0.5, 0],
 
 # M = [[0, 1, 0], [0.5, 0.0, 0.5], [0, 1, 0]]
 
-final_pr = iterative_pr(M, 0.8, 50)
+# final_pr = iterative_pr(M, 0.8, 50)
 # print("Pagerank is \n", np.array(M))
 # print(final_pr)

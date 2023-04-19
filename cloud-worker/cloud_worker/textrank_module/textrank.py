@@ -6,6 +6,8 @@ from typing import Dict, List, Set, Union
 import spacy
 from spacy.tokens import Doc, Span
 
+from cloud_worker.textrank_module.clustering import cluster_sentences
+
 from .nlp import (
     _decode_unicode,
     _remove_non_ascii,
@@ -39,7 +41,7 @@ class TextRank(metaclass=Singleton):
         log.info('loading spacy model...')
         self.nlp = spacy.load('en_core_web_lg') # generate a spacy natural language processing object
     
-    def sentence_extraction__undirected(self, text: Union[str, List[str]], iterations:int=100):
+    def sentence_extraction__undirected(self, text: Union[str, List[str]], converge_val:float=0.01):
         if isinstance(text, str):
             text = _decode_unicode(text)
             text = _remove_non_ascii(text)
@@ -54,10 +56,10 @@ class TextRank(metaclass=Singleton):
         
         nodes = self._generate_nodes_from_similarity(nodes)
         
-        result = PageRank.calculate__undirected_no_optimise(nodes, iterations=iterations)
+        result = PageRank.calculate__undirected_no_optimise(nodes, converge_val=converge_val)
         
         sorted_result = sorted(result.items(), key=lambda x:x[1], reverse=True)
-        result_nodes = []
+        result_nodes: List[dict] = []
         
         for node,score in sorted_result:
             # convert node to dict for serialization
@@ -69,7 +71,7 @@ class TextRank(metaclass=Singleton):
         
     
     def keyword_extraction__undirected(self, string:str,
-                                       iterations:int=100,
+                                       converge_val:float=0.01,
                                        number_to_keep: int=0,
                                        pos_tags:List[str] = ['NOUN','ADJ', 
                                                              'PROPN'
@@ -89,7 +91,7 @@ class TextRank(metaclass=Singleton):
         if not any(filtered_text): return []
         
         nodes = self._generate_nodes_from_cooccurence(filtered_text, cooccurence_value)
-        result = PageRank.calculate__undirected_no_optimise(nodes, iterations=iterations, random_surf_prob=damping_factor)
+        result = PageRank.calculate__undirected_no_optimise(nodes, converge_val=converge_val, random_surf_prob=damping_factor)
         
         sorted_result = sorted(result.items(), key=lambda x:x[1], reverse=True)
         sorted_result = sorted_result[:number_to_keep]
@@ -104,7 +106,7 @@ class TextRank(metaclass=Singleton):
         return result_nodes
             
     def _generate_nodes_from_similarity(self, sentences:List[Doc], threshold: float = 0.5):
-        node_dict = {}
+        node_dict:Dict[str, Undirected_Node] = {}
         # helper function to get a Node from the dict or generate a new Node if one doesn't exist
         def get_from_node_dict(token_orth:str) -> Undirected_Node:
             if token_orth in node_dict: return node_dict[token_orth]
@@ -117,7 +119,7 @@ class TextRank(metaclass=Singleton):
             i_node = get_from_node_dict(i.text)
             for jdx, j in enumerate(sentences[idx+1:]):
                 j_node = get_from_node_dict(j.text)
-                score = i.similarity(j)
+                score = abs(i.similarity(j))
                 i_node.to(j_node, score)
         return list(node_dict.values())
     

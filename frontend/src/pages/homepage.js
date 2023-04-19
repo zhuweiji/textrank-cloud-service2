@@ -157,14 +157,17 @@ export function Homepage(props) {
 
             // use the sentence extraction pagerank method to give each image a score
             let node_ranking_response = await HttpService.image_rank_w_sentences_service(values);
+
+
             let node_ranking_job = new JobInProgress(node_ranking_response.task_id, service, false)
-            let node_ranking_job_result = await this.getJobResult(node_ranking_job)
-            let node_graph = node_ranking_job_result.result
+            let node_ranking_job_response = await this.getJobResult(node_ranking_job)
+            let node_ranking_job_result = node_ranking_job_response.result
 
-            console.log(node_graph)
+            let node_graph = node_ranking_job_result['keyword_extraction_result']
+            let clusters = node_ranking_job_result['clusters']
 
 
-            let graph = await createGraphStructureFromImageData(data, node_graph);
+            let graph = await createGraphStructureFromImageData(data, node_graph, clusters);
 
             console.log(graph)
             this.setResultsOfCompletedJob(displayedJobTaskId, '', null, graph)
@@ -223,8 +226,10 @@ export function Homepage(props) {
             let graphData = createGraphStructureFromTextRankData(resultModified);
 
 
-            let filteredResultData = resultData.filter(i => i.score > 1).map(i => i.tooltip)
+            let filteredResultData = resultData.slice(0, 5).map(i => i.tooltip)
+            console.log(resultData.slice(0, 5))
             let displayedOutputText = filteredResultData.join('\n')
+            console.log(displayedOutputText)
             this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
         }
 
@@ -650,7 +655,7 @@ function createGraphStructureFromTextRankData(data) {
 }
 
 // takes an array of files and a graph structure to create a antv G6 graph structure
-async function createGraphStructureFromImageData(fileArray, nodeGraph) {
+async function createGraphStructureFromImageData(fileArray, nodeGraph, clusters) {
     let resultObj = { 'nodes': [], 'edges': [] }
 
     console.log(fileArray)
@@ -662,11 +667,20 @@ async function createGraphStructureFromImageData(fileArray, nodeGraph) {
         throw Error('mismatch in the lengths of the array of images and the corresponding array of nodes that is the result of the images passed through pagerank')
     }
 
+    // generate clusters in the graph -- this code creates the combo objects that can contain several nodes 
+    if (clusters !== undefined) {
+        let combos = clusters.map((clusterArr, index) => {
+            return { id: `combo${index}` }
+        })
+        console.log(combos)
+        resultObj['combos'] = combos;
+    }
+
     // create nodes
     fileArray.forEach((file, index) => {
         let url = URL.createObjectURL(file);
         let node = nodeGraph[index];
-        console.log(node)
+
 
         let newNode = {
             'id': `${node.id}`,
@@ -685,6 +699,14 @@ async function createGraphStructureFromImageData(fileArray, nodeGraph) {
                 height: 20
             }
         }
+
+        if (clusters !== undefined) {
+            let clusterId = findIndicesOfValue(clusters, node.id).slice(0);
+            if (clusterId) {
+                newNode['comboId'] = `combo${clusterId}`
+            }
+
+        }
         resultObj['nodes'].push(newNode);
     })
 
@@ -701,6 +723,8 @@ async function createGraphStructureFromImageData(fileArray, nodeGraph) {
         })
 
     })
+
+
     return resultObj;
 }
 
@@ -729,7 +753,7 @@ function NetworkGraph2({ data }) {
 
     React.useEffect(() => {
         if (!graph) {
-            graph = new G6.Graph({
+            let graphProps = {
                 container: ReactDOM.findDOMNode(ref.current),
                 width: 800,
                 height: 600,
@@ -746,22 +770,40 @@ function NetworkGraph2({ data }) {
                         strokeOpacity: 0.5,
                     }
                 },
+                defaultCombo: {
+                    size: 50
+                },
                 modes: {
-                    default: ['drag-canvas', 'zoom-canvas', 'drag-node',],
+                    default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'drag-combo', 'collapse-expand-combo',],
                 },
                 layout: {
-                    // type: 'force',
-                    // preventOverlap: true,
-                    // linkDistance: 100,
-                    // nodeStrength: d => d.score,
-                    type: 'radial',
+
+                    type: 'force',
                     preventOverlap: true,
-                    nodeSize: 100,
+                    linkDistance: 100,
+                    nodeStrength: d => d.score,
+
+                    // type: 'radial',
+                    // preventOverlap: true,
+                    // nodeSize: 100,
 
                 },
                 plugins: [tooltip], // Use Tooltip plugin
 
-            });
+            }
+
+            if (data.combos) {
+                graphProps['layout'] = {
+                    type: 'comboForce',
+                    center: [200, 200],     // The center of the graph by default
+                    linkDistance: 100,         // Edge length
+                    nodeStrength: 30,
+                    edgeStrength: 0.1,
+                    preventOverlap: true,
+
+                }
+            }
+            graph = new G6.Graph(graphProps);
         }
 
 
@@ -774,4 +816,14 @@ function NetworkGraph2({ data }) {
     }, []);
 
     return <div ref={ref}></div>;
+}
+
+function findIndicesOfValue(arr, val) {
+    var indices = [];
+    for (var i = 0; i < arr.length; i++) {
+        if (arr[i].indexOf(val) !== -1) {
+            indices.push(i);
+        }
+    }
+    return indices;
 }
