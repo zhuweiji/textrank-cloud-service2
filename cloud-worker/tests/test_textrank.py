@@ -7,21 +7,32 @@ from cloud_worker.textrank_module.textrank import TextRank
 
 log = logging.getLogger(__name__)
 
+"""
+fix algo
+    convergence
+    normalised values
 
-class Test_TextRank__Keyword_Extraction__regen:
+hyperparams:
+    keyword extraction  (?)
+   
+    damping factor (0.85 in paper) 
+    convergence threshold (0.0001 in paper)
+    co-occurence relation 2-10 (2 in paper)
+    pos tags -: all open class words, nouns and verbs only (nouns, adjs in paper)
+    number of keywords output - T (1/3 of tokens in paper)
+
+large state space
+   
+"""
+            
+
+class Test_TextRank__Keyword_Extraction:
     keyword_extraction    = TextRank().keyword_extraction__undirected
     regenerate_keyphrases = TextRank().regenerate_keyphrases
     
     
     def test_example_from_textrank_paper(self):
-        input_text = """Compatibility of systems of linear constraints over the set of natural numbers.
-Criteria of compatibility of a system of linear Diophantine equations, strict
-inequations, and nonstrict inequations are considered. Upper bounds for
-components of a minimal set of solutions and algorithms of construction of
-minimal generating sets of solutions for all types of systems are given.
-These criteria and the corresponding algorithms for constructing a minimal
-supporting set of solutions can be used in solving all the considered types
-systems and systems of mixed types."""
+        input_text = """Compatibility of systems of linear constraints over the set of natural numbers. Criteria of compatibility of a system of linear Diophantine equations, strict inequations, and nonstrict inequations are considered. Upper bounds for components of a minimal set of solutions and algorithms of construction of minimal generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for constructing a minimal supporting set of solutions can be used in solving all the considered types systems and systems of mixed types."""
 
         results_from_paper = {
         "linear constraints":1,
@@ -39,10 +50,9 @@ systems and systems of mixed types."""
         
         result = self.regenerate_keyphrases(only_text_and_score, input_text)
         sorted_result = sorted(result.items(), key=lambda x: x[1])
-        log.warning(sorted_result)
         
         assert set(results_from_paper.keys()) - set(result.keys()) == set()
-        
+    
         
     @staticmethod
     def convert_nodelist_to_text_list(nodelist: List[dict]):
@@ -55,17 +65,10 @@ class Test_TextRank__Keyword_Extraction__No_Keyphrase_Regeneration:
                          'PROPN',
                         'VERB','ADV'
                         ]
-    convert_nodelist_to_text_list = lambda self, v: Test_TextRank__Keyword_Extraction__regen.convert_nodelist_to_text_list(v)
+    convert_nodelist_to_text_list = lambda self, v: Test_TextRank__Keyword_Extraction.convert_nodelist_to_text_list(v)
         
     def test_example_from_textrank_paper(self):
-        input_text = """Compatibility of systems of linear constraints over the set of natural numbers.
-Criteria of compatibility of a system of linear Diophantine equations, strict
-inequations, and nonstrict inequations are considered. Upper bounds for
-components of a minimal set of solutions and algorithms of construction of
-minimal generating sets of solutions for all types of systems are given.
-These criteria and the corresponding algorithms for constructing a minimal
-supporting set of solutions can be used in solving all the considered types
-systems and systems of mixed types."""
+        input_text = """Compatibility of systems of linear constraints over the set of natural numbers. Criteria of compatibility of a system of linear Diophantine equations, strict inequations, and nonstrict inequations are considered. Upper bounds for components of a minimal set of solutions and algorithms of construction of minimal generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for constructing a minimal supporting set of solutions can be used in solving all the considered types systems and systems of mixed types."""
 
         result_in_paper = {"types","systems","linear","diophantine","constraints","system","compatibility","criteria","numbers","natural","equations","strict","inequations","nonstrict","upper","bounds","components","algorithms","solutions","sets","minimal","construction"}
         expected_result = {'components', 'compatibility', 'numbers', 'inequations', 'criteria', 'upper', 'nonstrict', 'constraints', 'systems', 'generating', 'solutions', 'natural', 'bounds', 'minimal', 'set', 'algorithms', 'equations', 'types', 'construction', 'linear', 'diophantine', 'strict'}
@@ -198,7 +201,7 @@ class Test_TextRank_Utils:
     def test_regenerate_keyphrases__empty_split_text(self):
         input_text = ''
         keywords = {'apple': 1, 'banana': 2}
-        expected_results = {'apple':1, 'banana':2} # keywords not found will be added on at the end
+        expected_results = {}
 
         result = self.regenerate_keyphrases(keywords, input_text)
 
@@ -208,7 +211,7 @@ class Test_TextRank_Utils:
     def test_regenerate_keyphrases__no_keyphrases(self):
         input_text = 'apple banana cherry'
         keywords = {'orange': 2, 'grape': 1}
-        expected_results = {'orange':2, 'grape':1}
+        expected_results = {}
 
         result = self.regenerate_keyphrases(keywords, input_text)
 
@@ -216,9 +219,10 @@ class Test_TextRank_Utils:
 
 
     def test_regenerate_keyphrases__single_keyword(self):
+        """single word phrases are discarded, as we only want multiword phrases"""
         input_text = 'apple banana cherry'
         keywords = {'apple': 1}
-        expected_results = {'apple':1}
+        expected_results = {}
 
         result = self.regenerate_keyphrases(keywords, input_text)
 
@@ -246,11 +250,13 @@ class Test_TextRank_Utils:
 
 
     def test_regenerate_keyphrases__non_consecutive_keywords(self):
+        """single word phrases are discarded, as we only want multiword phrases"""
         input_text = 'apple banana cherry dog elephant fox grape horse iguana'
         keywords = {'apple': 1, 'dog': 1, 'grape': 1}
-        expected_results = {'apple':1, 'dog':1, 'grape':1}
+        expected_results = {}
 
         result = self.regenerate_keyphrases(keywords, input_text)
+        log.warning(result)
 
         assert result == expected_results
 
@@ -271,4 +277,11 @@ class Test_TextRank_Utils:
         
         result = self.regenerate_keyphrases(keywords, input_text)
 
+        assert result == expected_results
+        
+    def test_example_from_train_data(self):
+        input_text= "Stable feature selection via dense feature groups Many feature selection algorithms have been proposed in the past focusing on improving classification accuracy. In this work, we point out the importance of stable feature selection for knowledge discovery from high-dimensional data, and identify two causes of instability of feature selection algorithms: selection of a minimum subset without redundant features and small sample size. We propose a general framework for stable feature selection which emphasizes both good generalization and stability of feature selection results. The framework identifies dense feature groups based on kernel density estimation and treats features in each dense group as a coherent entity for feature selection. An efficient algorithm DRAGS (Dense Relevant Attribute Group Selector) is developed under this framework. We also introduce a general measure for assessing the stability of feature selection algorithms. Our empirical study based on microarray data verifies that dense feature groups remain stable under random sample hold out, and the DRAGS algorithm is effective in identifying a set of feature groups which exhibit both high classification accuracy and stability.\n"
+        keywords = {'feature': 46, 'selection': 36, 'dense': 16, 'groups': 16, 'algorithms': 12}
+        expected_results = {'feature selection': 46, 'dense feature groups': 46, 'feature selection algorithms': 46, 'feature selection algorithms selection': 46, 'feature groups': 46}
+        result = self.regenerate_keyphrases(keywords, input_text)
         assert result == expected_results

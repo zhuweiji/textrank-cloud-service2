@@ -13,7 +13,7 @@ from .nlp import (
     _remove_stopwords,
     _simple_tokenize,
 )
-from .pagerank import Directed_Edge, Directed_Node, PageRank, Undirected_Node
+from .pagerank import PageRank, Undirected_Node
 
 """
 TextRank.keyword_extraction__undirected() - return a list of keywords from a string
@@ -146,7 +146,7 @@ class TextRank(metaclass=Singleton):
     def regenerate_keyphrases(self, keyword_dict:Dict[str, int], original_text:str):
         """combine keywords that are next to each other"""
         keywords = set(i.lower() for i in keyword_dict)
-        log.warning(keyword_dict)
+        log.debug(keyword_dict)
         keyword_dict_copy = {k.lower():v for k,v in keyword_dict.items()}
         
         original_text = original_text.lower()
@@ -175,6 +175,7 @@ class TextRank(metaclass=Singleton):
                 cleaned_next_token = re.sub(r'[^a-zA-Z0-9]', '', next_token)
                 
                 if not cleaned_next_token or cleaned_next_token not in keywords: # terminating condition - add phrase to results
+                    log.debug(f'adding keyphrase {keyphrase} because not in keywords')
                     results[' '.join(keyphrase)] = max_score
                     break
                 
@@ -185,6 +186,7 @@ class TextRank(metaclass=Singleton):
                 keyphrase.append(cleaned_next_token)
                 
                 if (any(i in next_token for i in [',', '.', '\n'])): # if the word has either comma or fullstop, then end the keyphrase
+                    log.debug(f'adding keyphrase {keyphrase} because terminator')
                     results[' '.join(keyphrase)] = max_score
                     break
                 
@@ -193,8 +195,6 @@ class TextRank(metaclass=Singleton):
             index+=increment
             
         results = {k:v for k,v in results.items() if len(k.split(' ')) > 1}
-        
-        log.warning(results)
         
         return results
             
