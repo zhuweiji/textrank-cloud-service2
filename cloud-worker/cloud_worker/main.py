@@ -8,7 +8,7 @@ tasks = set()
 
 import logging
 
-logging.basicConfig(format='%(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s %(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 import asyncio
