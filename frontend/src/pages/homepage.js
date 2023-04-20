@@ -16,6 +16,8 @@ import { styled } from '@mui/material/styles';
 
 import { FileUploader } from "react-drag-drop-files";
 
+import { Rainbow } from 'rainbowvis.js'
+
 import { HttpService } from '../services/api.js'
 
 import ReactDOM from 'react-dom';
@@ -148,7 +150,6 @@ export function Homepage(props) {
             console.log(job_results)
 
             let values = await Promise.all(job_results)
-            console.log(values)
             if (values.length !== data.length) {
                 throw Error('returned result of job has mismatching length')
             }
@@ -157,7 +158,6 @@ export function Homepage(props) {
 
             // use the sentence extraction pagerank method to give each image a score
             let node_ranking_response = await HttpService.image_rank_w_sentences_service(values);
-
 
             let node_ranking_job = new JobInProgress(node_ranking_response.task_id, service, false)
             let node_ranking_job_response = await this.getJobResult(node_ranking_job)
@@ -170,7 +170,7 @@ export function Homepage(props) {
             let graph = await createGraphStructureFromImageData(data, node_graph, clusters);
 
             console.log(graph)
-            this.setResultsOfCompletedJob(displayedJobTaskId, '', null, graph)
+            this.setResultsOfCompletedJob(displayedJobTaskId, null, null, graph)
         }
 
         static async createNewTextRankJob(data) {
@@ -190,17 +190,43 @@ export function Homepage(props) {
 
             let graphData = createGraphStructureFromTextRankData(keywordNodes);
 
-            let filteredResultData = keywordNodes.filter(i => i.score > 1).map(i => i.name).slice(0, 10)
-            let displayedOutputText = 'Key Phrases:\n------------------------------\n' +
-                keyphrasesOnly.join('\n') +
-                '\n\n=================================\n\nKeywords:\n------------------------------\n' +
-                filteredResultData.join(', ') +
-                '\n\n=================================\n\nOriginal Text:\n------------------------------\n' +
-                data
+            let filteredResultData = keywordNodes.slice(0, 10).map(i => i.name)
+            let displayedOutputTextComponent = <>
+                <Typography variant='h5' pt={3} pb={1} >
+                    Key Phrases
+                </Typography>
+
+                <Typography whiteSpace='pre-wrap' pb={5} fontFamily='Roboto' >
+                    {keyphrasesOnly.join('\n')}
+                </Typography>
+
+                <Divider />
+
+                <Typography variant='h5' pt={5} pb={1} >
+                    Keywords
+                </Typography>
+
+                <Typography whiteSpace='pre-wrap' pb={5} fontFamily='Roboto' >
+                    {filteredResultData.join(', ')}
+                </Typography>
+
+                <Divider />
 
 
 
-            this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
+                <Typography variant='h5' pt={5} pb={2}>
+                    Original Text
+                </Typography>
+
+                <Typography fontFamily='Roboto'>
+                    {data}
+                </Typography>
+            </>
+
+
+
+
+            this.setResultsOfCompletedJob(task_id, displayedOutputTextComponent, null, graphData)
         }
 
         static async createNewSentenceExtractionJob(data) {
@@ -227,10 +253,14 @@ export function Homepage(props) {
 
 
             let filteredResultData = resultData.slice(0, 5).map(i => i.tooltip)
-            console.log(resultData.slice(0, 5))
-            let displayedOutputText = filteredResultData.join('\n')
-            console.log(displayedOutputText)
-            this.setResultsOfCompletedJob(task_id, displayedOutputText, null, graphData)
+            let displayedOutputText = filteredResultData.join('\n\n')
+
+            let displayedOutputTextComponent = <Typography whiteSpace='pre-wrap'>
+                {displayedOutputText}
+            </Typography>
+
+
+            this.setResultsOfCompletedJob(task_id, displayedOutputTextComponent, null, graphData)
         }
 
 
@@ -252,7 +282,13 @@ export function Homepage(props) {
                 // the foreach loop shouldn't be blocked by waiting for a getJobResult
                 let resultPromise = this.getJobResult(job)
                 resultPromise.then((job_result) => {
-                    this.setResultsOfCompletedJob(job_result['task_id'], job_result['result'], photoUrl, null)
+                    let displayedOutputText = job_result['result']
+
+                    let displayedOutputTextComponent = <Typography whiteSpace='pre-wrap'>
+                        {displayedOutputText}
+                    </Typography>
+
+                    this.setResultsOfCompletedJob(job_result['task_id'], displayedOutputTextComponent, photoUrl, null)
                 })
             })
         }
@@ -498,8 +534,8 @@ export function Homepage(props) {
                     <Box pb={5}>
                         <Typography variant='h6'>Text</Typography>
                         <Divider />
-
-                        <Typography whiteSpace='pre-wrap'>{displayedTextResult}</Typography>
+                        {displayedTextResult}
+                        {/* <Typography whiteSpace='pre-wrap'>{displayedTextResult}</Typography> */}
 
                     </Box>
 
@@ -629,14 +665,27 @@ function createGraphStructureFromTextRankData(data) {
 
     let edgeMap = new Map()
     let meanScore = data.reduce((sum, i) => sum + parseFloat(i.score), 0) / data.length;
-    data.forEach((i) => {
+
+    // let rainbowColorObject = new Rainbow(); //an object that helps to create color gradients
+    // rainbowColorObject.setNumberRange(1, data.length);
+    // rainbowColorObject.setSpectrum('green', 'black');
+
+    let colors = generateColor('#E1E5EE', '#31E981', data.length).map(i => '#' + i);
+    console.log(colors)
+
+    data.sort((i) => i.score)
+
+    data.forEach((i, index) => {
 
         let node = {
             id: `${i.id}`,
             label: `${i.name.slice(0, 30)}`,
-            score: `${i.score}`,
+            score: `${i.score / meanScore}`,
             size: `${((i.score / meanScore) + 2) * 5}`,
-            tooltip: `${i.tooltip}`
+            tooltip: `${i.tooltip}`,
+            style: {
+                fill: colors[index]
+            }
         }
         i?.connected.forEach(other_id => edgeMap.set(i.id, other_id))
         resultObj['nodes'].push(node)
@@ -689,8 +738,9 @@ async function createGraphStructureFromImageData(fileArray, nodeGraph, clusters)
             'score': `${node.score}`,
             'size': node.score,
             'labelCfg': {
-                positions: 'bottom',
+                position: 'bottom',
                 offset: 10,
+                fontSize: 5,
             },
             'icon': {
                 show: true,
@@ -826,4 +876,63 @@ function findIndicesOfValue(arr, val) {
         }
     }
     return indices;
+}
+
+
+function hex(c) {
+    var s = "0123456789abcdef";
+    var i = parseInt(c);
+    if (i == 0 || isNaN(c))
+        return "00";
+    i = Math.round(Math.min(Math.max(0, i), 255));
+    return s.charAt((i - i % 16) / 16) + s.charAt(i % 16);
+}
+
+/* Convert an RGB triplet to a hex string */
+function convertToHex(rgb) {
+    return hex(rgb[0]) + hex(rgb[1]) + hex(rgb[2]);
+}
+
+/* Remove '#' in color hex string */
+function trim(s) { return (s.charAt(0) == '#') ? s.substring(1, 7) : s }
+
+/* Convert a hex string to an RGB triplet */
+function convertToRGB(hex) {
+    var color = [];
+    color[0] = parseInt((trim(hex)).substring(0, 2), 16);
+    color[1] = parseInt((trim(hex)).substring(2, 4), 16);
+    color[2] = parseInt((trim(hex)).substring(4, 6), 16);
+    return color;
+}
+
+function generateColor(colorStart, colorEnd, colorCount) {
+
+    // The beginning of your gradient
+    var start = convertToRGB(colorStart);
+
+    // The end of your gradient
+    var end = convertToRGB(colorEnd);
+
+    // The number of colors to compute
+    var len = colorCount;
+
+    //Alpha blending amount
+    var alpha = 0.0;
+
+    var saida = [];
+
+    for (let i = 0; i < len; i++) {
+        var c = [];
+        alpha += (1.0 / len);
+
+        c[0] = start[0] * alpha + (1 - alpha) * end[0];
+        c[1] = start[1] * alpha + (1 - alpha) * end[1];
+        c[2] = start[2] * alpha + (1 - alpha) * end[2];
+
+        saida.push(convertToHex(c));
+
+    }
+
+    return saida;
+
 }
