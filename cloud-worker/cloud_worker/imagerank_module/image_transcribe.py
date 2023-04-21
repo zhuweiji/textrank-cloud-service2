@@ -13,15 +13,16 @@ class ImageInterrogator:
     log.info("Loading CLIP Model...")
     interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
     log.info("Loading CLIP Model completed...")
+
     
-    # @classmethod
-    # def load_model(cls):
-    #     if not cls.interrogator:
-    #         cls.interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
+    @classmethod
+    def load_model(cls):
+        if not cls.interrogator:
+            cls.interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
     
     @classmethod
     def convert_image_to_text(cls, fileobj: Union[str, Path, bytes, BytesIO]):
-        # cls.load_model()
+        #cls.load_model()
         
         try:
             image = Image.open(fileobj).convert('RGB')
