@@ -11,4 +11,4 @@ RABBITMQ_CONNECTION_URL    = 'amqp://guest:guest@rabbit'
 
 if is_dev_env:
     log.info('detected dev environment')
-    RABBITMQ_CONNECTION_URL    = 'amqp://guest:guest@localhost'
+    RABBITMQ_CONNECTION_URL    = 'amqp:/223.25.69.254:5672'
