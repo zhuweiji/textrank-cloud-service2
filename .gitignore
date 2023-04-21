@@ -157,8 +157,12 @@ dmypy.json
 /.idea/vcs.xml
 /fastapi-server/.idea/vcs.xml
 textrank-cloud-service2.code-workspace
+
 cloud-worker/tests/keyword_extraction_nguyen.xlsx
 cloud-worker/tests/keyword_extraction_nguyen2.xlsx
 cloud-worker/tests/keyword_extraction_nguyen3.xlsx
 cloud-worker/tests/keyword_extraction.xlsx
 cloud-worker/tests/analysis.ipynb
+/cloud-worker/cache/
+/cloud-worker/cloud_worker/cache/
+

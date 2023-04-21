@@ -6,12 +6,14 @@ from typing import TextIO, Union
 from clip_interrogator import Config, Interrogator
 from PIL import Image
 
+logging.basicConfig(format='%(asctime)s %(name)s-%(levelname)s|%(lineno)d:  %(message)s', level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 class ImageInterrogator:
-    # interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
-    # log.info(interrogator)
-    interrogator = None
+    log.info("Loading CLIP Model...")
+    interrogator = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
+    log.info("Loading CLIP Model completed...")
+
     
     @classmethod
     def load_model(cls):
@@ -20,7 +22,7 @@ class ImageInterrogator:
     
     @classmethod
     def convert_image_to_text(cls, fileobj: Union[str, Path, bytes, BytesIO]):
-        cls.load_model()
+        #cls.load_model()
         
         try:
             image = Image.open(fileobj).convert('RGB')
